@@ -1,28 +1,35 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
-import Hero from './components/Hero';
-import Testimonial from './components/Testimonial';
-import Features from './components/Features';
-import SuccessStories from './components/SuccessStories';
-import MediaTypes from './components/MediaTypes';
-import FeaturedOpportunities from './components/FeaturedOpportunities';
+import Footer from './components/Footer';
+import Home from './pages/home';
+import Contact from './pages/contact';
+
+import SignUp from './pages/SignUp';
 import HowItWorks from './components/HowItWorks';
 import PricingPlans from './components/PricingPlans';
-import Footer from './components/Footer';
+import { Marketplace } from './components/MarketPlace';
+import { About } from './components/About';
 
 function App() {
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      <Hero />
-      <Testimonial />
-      <Features />
-      <SuccessStories />
-      <MediaTypes />
-      <FeaturedOpportunities />
-      <HowItWorks />
-      <PricingPlans />
-      <Footer />
-    </div>
+    <Router>
+      <div className="min-h-screen bg-white">
+        <Header />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/pricing" element={<PricingPlans />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/marketplace" element={<Marketplace searchQuery={''} setSearchQuery={function (query: string): void {
+            throw new Error('Function not implemented.');
+          }} selectedFilter={''} setSelectedFilter={function (filter: string): void {
+            throw new Error('Function not implemented.');
+          }} listings={[]} />} />
+          <Route path="/about" element={<About />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

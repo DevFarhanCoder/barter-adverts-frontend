@@ -1,6 +1,4 @@
 import React, { useState } from 'react'
-import { supabase } from '../lib/supabase'
-import Header from '../components/Header'
 
 const SignUp: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,8 +12,6 @@ const SignUp: React.FC = () => {
     password: ''
   })
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(1) // 1 = form, 2 = OTP verification
-  const [otp, setOtp] = useState('')
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -36,106 +32,13 @@ const SignUp: React.FC = () => {
     e.preventDefault()
     setLoading(true)
 
-    try {
-      // Create account with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phoneNumber,
-            company_name: formData.companyName,
-            user_type: formData.userType,
-            description: formData.description
-          }
-        }
-      })
+    // TODO: Call your Node.js backend API here to handle signup
 
-      if (error) throw error
-
-      // Move to OTP verification step
-      setStep(2)
-    } catch (error) {
-      console.error('Error creating account:', error)
-      alert('Error creating account. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleOTPVerification = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: formData.email,
-        token: otp,
-        type: 'signup'
-      })
-
-      if (error) throw error
-
-      alert('Account created successfully!')
-      // Redirect to dashboard or home page
-      window.location.href = '/'
-    } catch (error) {
-      console.error('Error verifying OTP:', error)
-      alert('Invalid OTP. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (step === 2) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-sm p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify Your Email</h2>
-              <p className="text-gray-600">
-                We've sent a verification code to <strong>{formData.email}</strong>
-              </p>
-            </div>
-
-            <form onSubmit={handleOTPVerification} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Verification Code
-                </label>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter 6-digit code"
-                  maxLength={6}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Verify & Create Account'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
+    setLoading(false)
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-      
       <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full bg-white rounded-lg shadow-sm p-8">
           <div className="text-center mb-8">
