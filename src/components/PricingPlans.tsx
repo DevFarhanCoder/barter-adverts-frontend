@@ -12,7 +12,7 @@ const PricingPlans: React.FC = () => {
 
 const handlePayment = async (amount: number) => {
   try {
-    const response = await fetch('http://localhost:5000/api/create-order', {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount })
