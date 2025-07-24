@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
 
 const SignUp: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -28,14 +30,38 @@ const SignUp: React.FC = () => {
     }))
   }
 
+  const navigate = useNavigate()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    // TODO: Call your Node.js backend API here to handle signup
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        navigate('/marketplace')
+      } else {
+        alert(data.message || 'Signup failed')
+      }
+      
+    } catch (err) {
+      console.error('Signup error:', err)
+      alert('Something went wrong. Try again later.')
+    }
 
     setLoading(false)
   }
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">
