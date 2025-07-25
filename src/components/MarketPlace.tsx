@@ -1,6 +1,5 @@
-// Modified Marketplace.tsx (UPDATED)
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Star, Shield, User, Handshake, X } from 'lucide-react';
+import { Search, MapPin, Star, Shield, User, X } from 'lucide-react';
 
 interface Listing {
   _id?: string;
@@ -45,35 +44,43 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     image: '',
   });
 
-useEffect(() => {
-  const fetchListings = async () => {
-    try {
-      const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters');
-      const data = await res.json();
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters');
+        const data = await res.json();
 
-      if (!Array.isArray(data)) throw new Error('Expected array but got: ' + typeof data);
+        if (!Array.isArray(data)) throw new Error('Expected array but got: ' + typeof data);
 
-      setListings(data);
-    } catch (error) {
-      console.error('Failed to fetch listings', error);
-    }
-  };
-  fetchListings();
-}, []);
+        const valid = data.filter(
+          (item) =>
+            item &&
+            typeof item.title === 'string' &&
+            typeof item.location === 'string' &&
+            typeof item.description === 'string' &&
+            typeof item.contact === 'string'
+        );
 
+        setListings(valid);
+      } catch (error) {
+        console.error('Failed to fetch listings', error);
+      }
+    };
+    fetchListings();
+  }, []);
 
   const handleAddListing = async () => {
     try {
       const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newListing),
       });
+
       const data = await res.json();
+
       if (res.ok) {
-        setListings(prev => [...prev, data.barter]);
+        setListings(prev => [...prev, data]);
         setShowModal(false);
         setNewListing({
           type: 'Add Barter',
@@ -94,14 +101,12 @@ useEffect(() => {
     }
   };
 
-  const filteredListings = listings.filter((listing) => {
-    const matchesSearch =
-      listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter =
-      selectedFilter === 'All' || listing.type === selectedFilter;
-    return matchesSearch && matchesFilter;
-  });
+  const filteredListings = listings.filter(
+    (listing) =>
+      listing &&
+      listing.title &&
+      listing.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <>
@@ -135,7 +140,11 @@ useEffect(() => {
                       if (filter === 'Add Barter') setShowModal(true);
                       else setSelectedFilter(filter);
                     }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedFilter === filter ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedFilter === filter
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     {filter}
                   </button>
@@ -166,56 +175,58 @@ useEffect(() => {
 
           {/* Listings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredListings.map((listing) => (
-              <div key={listing._id || listing.title + listing.contact} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
-                <div className="relative">
-                  <div className="h-48 bg-gray-200 flex items-center justify-center">
-                    <div className="text-gray-400 text-6xl">📷</div>
-                  </div>
-                  <div className="absolute top-4 left-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${listing.type === 'Add Barter' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                      {listing.type}
-                    </span>
-                  </div>
-                  {listing.verified && (
-                    <div className="absolute top-4 right-4">
-                      <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                        <Shield className="w-3 h-3" />
-                        Verified
+            {filteredListings.map((listing, idx) => {
+              if (!listing || !listing.title) return null;
+              return (
+                <div key={listing._id || idx} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+                  <div className="relative">
+                    <div className="h-48 bg-gray-200 flex items-center justify-center">
+                      <div className="text-gray-400 text-6xl">📷</div>
+                    </div>
+                    <div className="absolute top-4 left-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        listing.type === 'Add Barter' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {listing.type}
                       </span>
                     </div>
-                  )}
-                </div>
-
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{listing.title}</h3>
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{listing.location}</span>
-                    <div className="flex items-center gap-1 ml-auto">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-medium">{listing.rating}</span>
+                    {listing.verified && (
+                      <div className="absolute top-4 right-4">
+                        <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                          <Shield className="w-3 h-3" />
+                          Verified
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{listing.title}</h3>
+                    <div className="flex items-center gap-2 mb-3">
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{listing.location}</span>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <span className="text-sm font-medium">{listing.rating}</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-600 text-sm mb-4">{listing.description}</p>
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Seeking:</p>
+                      <p className="text-sm text-gray-700">{listing.seeking}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-600">{listing.contact}</span>
+                      </div>
+                      <button className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
+                        Contact
+                      </button>
                     </div>
                   </div>
-                  <p className="text-gray-600 text-sm mb-4">{listing.description}</p>
-
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Seeking:</p>
-                    <p className="text-sm text-gray-700">{listing.seeking}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">{listing.contact}</span>
-                    </div>
-                    <button className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
-                      Contact
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
