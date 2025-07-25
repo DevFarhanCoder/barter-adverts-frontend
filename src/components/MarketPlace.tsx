@@ -1,9 +1,9 @@
-import React from 'react';
-import { Search, MapPin, Star, Shield, User, Handshake } from 'lucide-react';
-
+// Modified Marketplace.tsx (UPDATED)
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, Star, Shield, User, Handshake, X } from 'lucide-react';
 
 interface Listing {
-  id: number;
+  _id?: string;
   type: string;
   title: string;
   location: string;
@@ -21,19 +21,75 @@ interface MarketplaceProps {
   selectedFilter: string;
   setSelectedFilter: (filter: string) => void;
   listings: Listing[];
+  setListings: React.Dispatch<React.SetStateAction<Listing[]>>;
 }
 
-export const Marketplace: React.FC<MarketplaceProps> = ({
+const Marketplace: React.FC<MarketplaceProps> = ({
   searchQuery,
   setSearchQuery,
   selectedFilter,
   setSelectedFilter,
-  listings
+  listings,
+  setListings,
 }) => {
-  const filteredListings = listings.filter(listing => {
-    const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const [showModal, setShowModal] = useState(false);
+  const [newListing, setNewListing] = useState<Listing>({
+    type: 'Add Barter',
+    title: '',
+    location: '',
+    rating: 4.5,
+    description: '',
+    seeking: '',
+    contact: '',
+    verified: true,
+    image: '',
+  });
+
+  useEffect(() => {
+    fetch('https://barter-adverts-backend.onrender.com/api/barters')
+      .then(res => res.json())
+      .then(data => setListings(data))
+      .catch(err => console.error('Failed to fetch listings', err));
+  }, [setListings]);
+
+  const handleAddListing = async () => {
+    try {
+      const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newListing),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setListings(prev => [...prev, data.barter]);
+        setShowModal(false);
+        setNewListing({
+          type: 'Add Barter',
+          title: '',
+          location: '',
+          rating: 4.5,
+          description: '',
+          seeking: '',
+          contact: '',
+          verified: true,
+          image: '',
+        });
+      } else {
+        console.error('Error saving listing', data);
+      }
+    } catch (err) {
+      console.error('Error posting listing', err);
+    }
+  };
+
+  const filteredListings = listings.filter((listing) => {
+    const matchesSearch =
+      listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       listing.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === 'All' || listing.type === selectedFilter;
+    const matchesFilter =
+      selectedFilter === 'All' || listing.type === selectedFilter;
     return matchesSearch && matchesFilter;
   });
 
@@ -55,21 +111,21 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Search for opportunities..."
+                  placeholder="Search for barters..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
               <div className="flex gap-2">
-                {['All', 'Ad Space', 'Barter Offer'].map((filter) => (
+                {["All", "Add Barter", "Available Barters"].map((filter) => (
                   <button
                     key={filter}
-                    onClick={() => setSelectedFilter(filter)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedFilter === filter
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
+                    onClick={() => {
+                      if (filter === 'Add Barter') setShowModal(true);
+                      else setSelectedFilter(filter);
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedFilter === filter ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
                   >
                     {filter}
                   </button>
@@ -78,19 +134,36 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
             </div>
           </div>
 
+          {/* Modal Popup for Add Barter */}
+          {showModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg w-full max-w-xl shadow-xl relative">
+                <button onClick={() => setShowModal(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
+                <h3 className="text-xl font-bold mb-4">Add New Barter</h3>
+                <input className="mb-2 w-full border rounded p-2" placeholder="Title" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} />
+                <input className="mb-2 w-full border rounded p-2" placeholder="Location" value={newListing.location} onChange={e => setNewListing({ ...newListing, location: e.target.value })} />
+                <textarea className="mb-2 w-full border rounded p-2" placeholder="Description" value={newListing.description} onChange={e => setNewListing({ ...newListing, description: e.target.value })}></textarea>
+                <input className="mb-2 w-full border rounded p-2" placeholder="Seeking" value={newListing.seeking} onChange={e => setNewListing({ ...newListing, seeking: e.target.value })} />
+                <input className="mb-2 w-full border rounded p-2" placeholder="Contact Info" value={newListing.contact} onChange={e => setNewListing({ ...newListing, contact: e.target.value })} />
+                <button onClick={handleAddListing} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Listings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredListings.map((listing) => (
-              <div key={listing.id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+              <div key={listing._id || listing.title + listing.contact} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
                 <div className="relative">
                   <div className="h-48 bg-gray-200 flex items-center justify-center">
                     <div className="text-gray-400 text-6xl">📷</div>
                   </div>
                   <div className="absolute top-4 left-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${listing.type === 'Ad Space'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-green-100 text-green-800'
-                      }`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${listing.type === 'Add Barter' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
                       {listing.type}
                     </span>
                   </div>
@@ -136,90 +209,6 @@ export const Marketplace: React.FC<MarketplaceProps> = ({
           </div>
         </div>
       </section>
-      {/* Stats Section */}
-      <section className="py-16 bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-              Ready to Start Trading?
-            </h2>
-            <p className="text-xl text-indigo-100 mb-8">
-              Join thousands of businesses already growing through barter advertising. No credit card required to get started.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/signup" className="bg-white text-indigo-600 px-8 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium text-center">
-                Start Trading Now
-              </a>
-              <a href="/signup" className="border-2 border-white text-white px-8 py-3 rounded-lg hover:bg-white hover:text-indigo-600 transition-colors font-medium text-center">
-                Browse Opportunities
-              </a>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-white mb-2">500+</div>
-              <div className="text-indigo-200">Verified Businesses</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-white mb-2">₹50L+</div>
-              <div className="text-indigo-200">Value Traded Monthly</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-white mb-2">95%</div>
-              <div className="text-indigo-200">Successful Matches</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="col-span-1 md:col-span-1">
-              <div className="flex items-center mb-4">
-                <Handshake className="w-8 h-8 text-indigo-400 mr-3" />
-                <span className="text-xl font-bold">Barter Adverts</span>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                India's first unified barter marketplace for advertising. Trade your way to better marketing.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Platform</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">How It Works</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                <li><a href="/contact" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center">
-            <p className="text-gray-400 text-sm">
-              © 2024 Barter Adverts. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </>
   );
 };
