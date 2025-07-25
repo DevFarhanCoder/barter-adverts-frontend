@@ -45,12 +45,22 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     image: '',
   });
 
-  useEffect(() => {
-    fetch('https://barter-adverts-backend.onrender.com/api/barters')
-      .then(res => res.json())
-      .then(data => setListings(data))
-      .catch(err => console.error('Failed to fetch listings', err));
-  }, [setListings]);
+useEffect(() => {
+  const fetchListings = async () => {
+    try {
+      const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters');
+      const data = await res.json();
+
+      if (!Array.isArray(data)) throw new Error('Expected array but got: ' + typeof data);
+
+      setListings(data);
+    } catch (error) {
+      console.error('Failed to fetch listings', error);
+    }
+  };
+  fetchListings();
+}, []);
+
 
   const handleAddListing = async () => {
     try {
