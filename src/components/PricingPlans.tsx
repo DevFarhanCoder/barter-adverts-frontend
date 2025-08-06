@@ -13,8 +13,8 @@ const PricingPlans: React.FC = () => {
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
 const handlePayment = async (amount: number) => {
-  const user = requireLogin(); // validate once
-  if (!user) return;           // exit if not logged in
+  const user = requireLogin();
+  if (!user) return;
 
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
@@ -27,7 +27,7 @@ const handlePayment = async (amount: number) => {
     if (!data.success) throw new Error(data.error);
 
     const options = {
-      key: 'rzp_test_qV8BGFcUas9r3A', // your test key
+      key: 'rzp_test_qV8BGFcUas9r3A',
       amount: data.order.amount,
       currency: 'INR',
       name: 'Your Company Name',
@@ -42,12 +42,10 @@ const handlePayment = async (amount: number) => {
         email: user?.email || '',
         contact: user?.phone || ''
       },
-      theme: {
-        color: '#3399cc'
-      }
+      theme: { color: '#3399cc' }
     };
 
-    const rzp = new window.Razorpay(options);
+    const rzp = new (window as any).Razorpay(options);
     rzp.open();
   } catch (error) {
     console.error('Payment failed:', error);
