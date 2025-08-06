@@ -11,47 +11,54 @@ const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
-  const handlePayment = async (amount: number) => {
-    console.log("handlePayment called with amount:", amount);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
+ const handlePayment = async (amount: number) => {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
+  // 🔒 Redirect to signup if not logged in
+  if (!user) {
+    alert("Please create an account to make a payment.");
+    window.location.href = "/signup"; // or use navigate('/signup') if using React Router
+    return;
+  }
 
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error);
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
 
-      const options = {
-        key: 'rzp_test_qV8BGFcUas9r3A', // ✅ Use your actual key here!
-        amount: data.order.amount,
-        currency: 'INR',
-        name: 'Your Company Name',
-        description: 'Subscription Payment',
-        order_id: data.order.id,
-        handler: function (response: any) {
-          alert('Payment successful!');
-          console.log('Payment response:', response);
-        },
-        prefill: {
-          name: 'Gori Farhan',
-          email: 'farhan@example.com',
-          contact: '9876543210'
-        },
-        theme: {
-          color: '#3399cc'
-        }
-      };
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error);
 
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
+    const options = {
+      key: 'rzp_test_qV8BGFcUas9r3A',
+      amount: data.order.amount,
+      currency: 'INR',
+      name: 'Your Company Name',
+      description: 'Subscription Payment',
+      order_id: data.order.id,
+      handler: function (response: any) {
+        alert('Payment successful!');
+        console.log('Payment response:', response);
+      },
+      prefill: {
+        name: user?.name || '',
+        email: user?.email || '',
+        contact: user?.phone || ''
+      },
+      theme: {
+        color: '#3399cc'
+      }
+    };
 
-    } catch (error) {
-      console.error('Payment failed:', error);
-    }
-  };
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
+
+  } catch (error) {
+    console.error('Payment failed:', error);
+  }
+};
 
 
   const staticPlans = [
