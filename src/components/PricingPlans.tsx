@@ -12,9 +12,10 @@ const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
-const handlePayment = async () => {
-  const user = requireLogin(); // ✅ Check here
+const handlePayment = async (amount: number) => {
+  const user = requireLogin(); // ✅ Validates login
   if (!user) return;
+
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
       method: 'POST',
@@ -53,7 +54,6 @@ const handlePayment = async () => {
     console.error('Payment failed:', error);
   }
 };
-
 
   const staticPlans = [
     {
