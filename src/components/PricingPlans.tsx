@@ -6,20 +6,15 @@ declare global {
 import React, { useState } from 'react'
 import { Check, Users, TrendingUp, Crown, Rocket } from 'lucide-react'
 import Footer from './Footer';
+import { requireLogin } from '../utils/auth';
 
 const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
- const handlePayment = async (amount: number) => {
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-
-  // 🔒 Redirect to signup if not logged in
-  if (!user) {
-    alert("Please create an account to make a payment.");
-    window.location.href = "/signup"; // or use navigate('/signup') if using React Router
-    return;
-  }
+const handlePayment = async (amount: number) => {
+  const user = requireLogin();
+  if (!user) return;
 
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
