@@ -33,32 +33,38 @@ const SignUp: React.FC = () => {
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
 
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/signup`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(formData),
-});
-      const data = await res.json()
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+    });
 
-      if (res.ok) {
-        navigate('/marketplace')
-      } else {
-        alert(data.message || 'Signup failed')
-      }
-      
-    } catch (err) {
-      console.error('Signup error:', err)
-      alert('Something went wrong. Try again later.')
+    const data = await res.json()
+
+    if (res.ok) {
+      // ✅ Store token (or whole user) to localStorage
+      localStorage.setItem("user", JSON.stringify({ token: data.token, ...data.user }));
+
+      // ✅ Navigate to the app
+      navigate('/marketplace');
+    } else {
+      alert(data.message || 'Signup failed');
     }
 
-    setLoading(false)
+  } catch (err) {
+    console.error('Signup error:', err);
+    alert('Something went wrong. Try again later.');
   }
+
+  setLoading(false);
+};
+
 
 
 
