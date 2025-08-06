@@ -12,6 +12,7 @@ const PricingPlans: React.FC = () => {
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
   const handlePayment = async (amount: number) => {
+    console.log("handlePayment called with amount:", amount);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
         method: 'POST',
