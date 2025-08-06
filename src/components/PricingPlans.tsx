@@ -11,45 +11,46 @@ const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
-const handlePayment = async (amount: number) => {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/create-order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount })
-    });
+  const handlePayment = async (amount: number) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
+      });
 
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error);
 
-    const options = {
-      key: 'rzp_test_qV8BGFcUas9r3A', // ✅ Use your actual key here!
-      amount: data.order.amount,
-      currency: 'INR',
-      name: 'Your Company Name',
-      description: 'Subscription Payment',
-      order_id: data.order.id,
-      handler: function (response: any) {
-        alert('Payment successful!');
-        console.log('Payment response:', response);
-      },
-      prefill: {
-        name: 'Gori Farhan',
-        email: 'farhan@example.com',
-        contact: '9876543210'
-      },
-      theme: {
-        color: '#3399cc'
-      }
-    };
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
 
-    const rzp = new (window as any).Razorpay(options);
-    rzp.open();
+      const options = {
+        key: 'rzp_test_qV8BGFcUas9r3A', // ✅ Use your actual key here!
+        amount: data.order.amount,
+        currency: 'INR',
+        name: 'Your Company Name',
+        description: 'Subscription Payment',
+        order_id: data.order.id,
+        handler: function (response: any) {
+          alert('Payment successful!');
+          console.log('Payment response:', response);
+        },
+        prefill: {
+          name: 'Gori Farhan',
+          email: 'farhan@example.com',
+          contact: '9876543210'
+        },
+        theme: {
+          color: '#3399cc'
+        }
+      };
 
-  } catch (error) {
-    console.error('Payment failed:', error);
-  }
-};
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+
+    } catch (error) {
+      console.error('Payment failed:', error);
+    }
+  };
 
 
   const staticPlans = [
@@ -136,88 +137,88 @@ const handlePayment = async (amount: number) => {
     }
   ]
 
-  
+
 
   return (
     <>
-    <section className="py-16 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900">Pricing Plans</h2>
-          <p className="text-gray-600 max-w-xl mx-auto mt-4">
-            Pay a fixed monthly fee plus commission only on successful deals. No hidden costs.
-          </p>
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900">Pricing Plans</h2>
+            <p className="text-gray-600 max-w-xl mx-auto mt-4">
+              Pay a fixed monthly fee plus commission only on successful deals. No hidden costs.
+            </p>
 
-          <div className="flex justify-center mt-6">
-            <button
-              className={`px-6 py-2 mr-2 rounded-md ${userType === 'advertisers' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border'}`}
-              onClick={() => setUserType('advertisers')}
-            >
-              Advertisers
-            </button>
-            <button
-              className={`px-6 py-2 rounded-md ${userType === 'media_owners' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border'}`}
-              onClick={() => setUserType('media_owners')}
-            >
-              Media Owners
-            </button>
+            <div className="flex justify-center mt-6">
+              <button
+                className={`px-6 py-2 mr-2 rounded-md ${userType === 'advertisers' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border'}`}
+                onClick={() => setUserType('advertisers')}
+              >
+                Advertisers
+              </button>
+              <button
+                className={`px-6 py-2 rounded-md ${userType === 'media_owners' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border'}`}
+                onClick={() => setUserType('media_owners')}
+              >
+                Media Owners
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {staticPlans.map((plan) => {
+              const Icon = plan.icon
+              const isPopular = plan.isPopular
+              const yearlyPrice = Math.floor(plan.price * 12 * 0.8)
+              const displayPrice = billingCycle === 'yearly' ? yearlyPrice : plan.price
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`bg-white rounded-2xl shadow-sm hover:shadow-lg transform hover:-translate-y-2 p-6 relative ${isPopular ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                >
+                  {isPopular && (
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm">
+                        ✨ Most Popular
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="text-center">
+                    <div className={`${plan.color} text-white w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center`}>
+                      <Icon className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
+                    <p className="text-sm text-gray-600 mt-2 mb-4">{plan.description}</p>
+                    <div className="text-2xl font-bold text-gray-900">₹{displayPrice}</div>
+                    <p className="text-red-500 text-sm">{plan.commission}</p>
+                    <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
+
+                    <button
+                      onClick={() => handlePayment(displayPrice * 100)} // Razorpay takes amount in paisa
+                      className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
+                    >
+                      Subscribe Now
+                    </button>
+
+                    <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-start">
+                          <Check className="w-4 h-4 text-green-500 mr-2 mt-1" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {staticPlans.map((plan) => {
-            const Icon = plan.icon
-            const isPopular = plan.isPopular
-            const yearlyPrice = Math.floor(plan.price * 12 * 0.8)
-            const displayPrice = billingCycle === 'yearly' ? yearlyPrice : plan.price
-
-            return (
-              <div
-                key={plan.id}
-                className={`bg-white rounded-2xl shadow-sm hover:shadow-lg transform hover:-translate-y-2 p-6 relative ${isPopular ? 'ring-2 ring-blue-500' : ''
-                  }`}
-              >
-                {isPopular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm">
-                      ✨ Most Popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="text-center">
-                  <div className={`${plan.color} text-white w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center`}>
-                    <Icon className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
-                  <p className="text-sm text-gray-600 mt-2 mb-4">{plan.description}</p>
-                  <div className="text-2xl font-bold text-gray-900">₹{displayPrice}</div>
-                  <p className="text-red-500 text-sm">{plan.commission}</p>
-                  <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
-
-                  <button
-                    onClick={() => handlePayment(displayPrice * 100)} // Razorpay takes amount in paisa
-                    className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
-                  >
-                    Subscribe Now
-                  </button>
-
-                  <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <Check className="w-4 h-4 text-green-500 mr-2 mt-1" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </section>
-    <Footer />
+      </section>
+      <Footer />
     </>
   )
 }
