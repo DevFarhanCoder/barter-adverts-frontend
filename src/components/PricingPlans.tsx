@@ -47,13 +47,14 @@ const handlePayment = async (amount: number) => {
       }
     };
 
-    const rzp = new (window as any).Razorpay(options);
+    const rzp = new window.Razorpay(options);
     rzp.open();
 
   } catch (error) {
     console.error('Payment failed:', error);
   }
 };
+
 
   const staticPlans = [
     {
