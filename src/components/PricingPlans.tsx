@@ -6,16 +6,15 @@ declare global {
 import React, { useState } from 'react'
 import { Check, Users, TrendingUp, Crown, Rocket } from 'lucide-react'
 import Footer from './Footer';
-import { requireLogin } from '../utils/auth';
+import { requireLogin } from "@/utils/requireLogin";
 
 const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
-const handlePayment = async (amount: number) => {
-  const user = requireLogin();
+const handlePayment = async () => {
+  const user = requireLogin(); // ✅ Check here
   if (!user) return;
-
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
       method: 'POST',
