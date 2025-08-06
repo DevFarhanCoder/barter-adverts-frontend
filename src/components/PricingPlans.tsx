@@ -13,9 +13,10 @@ const PricingPlans: React.FC = () => {
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
 const handlePayment = async (amount: number) => {
-  const user = requireLogin();
-  if (!user) return;
+  const user = requireLogin(); // Only one call
+  if (!user) return; // Stops here if not logged in
 
+  // Continue with Razorpay code only if user is valid
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
       method: 'POST',
@@ -42,11 +43,14 @@ const handlePayment = async (amount: number) => {
         email: user?.email || '',
         contact: user?.phone || ''
       },
-      theme: { color: '#3399cc' }
+      theme: {
+        color: '#3399cc'
+      }
     };
 
     const rzp = new (window as any).Razorpay(options);
     rzp.open();
+
   } catch (error) {
     console.error('Payment failed:', error);
   }
