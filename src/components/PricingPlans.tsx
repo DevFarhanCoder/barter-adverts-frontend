@@ -6,7 +6,7 @@ declare global {
 import React, { useState } from 'react'
 import { Check, Users, TrendingUp, Crown, Rocket } from 'lucide-react'
 import Footer from './Footer';
-import { requireLogin } from "@/utils/requireLogin";
+import { requireLogin } from "../utils/auth";
 
 const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
