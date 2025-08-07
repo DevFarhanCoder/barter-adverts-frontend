@@ -5,6 +5,7 @@ import 'react-phone-input-2/lib/style.css';
 
 
 const SignUp: React.FC = () => {
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     userType: 'advertiser',
     firstName: '',
@@ -97,23 +98,23 @@ const SignUp: React.FC = () => {
     setLoading(true)
 
     try {
-      console.log('API URL:', import.meta.env.VITE_API_BASE_URL);
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem("user", JSON.stringify({ token: data.token, ...data.user }))
-        navigate('/dashboard')
+        alert(data.message); // or show success toast
+        navigate('/login');  // ✅ Redirect after successful signup
       } else {
-        alert(data.message || 'Signup failed')
+        setError(data.message || 'Something went wrong.');
       }
+
 
     } catch (err) {
       console.error('Signup error:', err)
@@ -123,6 +124,7 @@ const SignUp: React.FC = () => {
     setLoading(false)
   }
 
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -131,6 +133,8 @@ const SignUp: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
             <p className="text-blue-600">Join Barter Adverts today</p>
           </div>
+
+          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* User Type */}
