@@ -196,20 +196,21 @@ const PricingPlans: React.FC = () => {
                     <p className="text-red-500 text-sm">{plan.commission}</p>
                     <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
 
-                    <button
-                      onClick={() => {
-                        console.log("✅ Subscribe clicked");
-                        const user = requireLogin();
-                        if (!user) {
-                          console.log("🚫 User not logged in");
-                          return;
-                        }
-                        handlePayment(displayPrice * 100);
-                      }}
-                      className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
-                    >
-                      Subscribe Now
-                    </button>
+<button
+  onClick={() => {
+    console.log("Subscribe clicked ✅");
+    const user = requireLogin();
+    if (!user) {
+      console.log("User not logged in ❌");
+      return;
+    }
+    console.log("User is logged in ✅");
+  }}
+  className="w-full bg-red-600 text-white py-3 rounded-lg mt-2"
+>
+  🔥 TEST Subscribe Now
+</button>
+
 
                     <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
                       {plan.features.map((feature, index) => (
