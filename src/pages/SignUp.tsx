@@ -1,5 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css';
+
 
 const SignUp: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -223,22 +226,23 @@ const SignUp: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number <span className="text-red-500">*</span>
               </label>
-              <div className="flex">
-                <select className="px-3 py-2 border border-gray-300 rounded-l-lg bg-gray-50 text-gray-700">
-                  <option value="+91">🇮🇳 +91</option>
-                </select>
-                <input
-                  type="tel"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg"
-                  placeholder="9876543210"
-                  required
-                />
-              </div>
+              <PhoneInput
+                country={'in'}
+                value={formData.phoneNumber}
+                onChange={(phone) =>
+                  setFormData((prev) => ({ ...prev, phoneNumber: phone }))
+                }
+                enableSearch={true}
+                inputStyle={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
+                containerStyle={{ marginBottom: '0.5rem' }}
+                inputProps={{
+                  name: 'phone',
+                  required: true,
+                }}
+              />
               <p className="text-xs text-blue-600 mt-1">We'll send an OTP to verify your number</p>
             </div>
+
 
             {/* Company Name */}
             <div>
