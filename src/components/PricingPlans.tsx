@@ -52,7 +52,6 @@ const PricingPlans: React.FC = () => {
     }
   };
 
-
   const staticPlans = [
     {
       id: '1',
@@ -135,9 +134,7 @@ const PricingPlans: React.FC = () => {
         'Custom contract terms'
       ]
     }
-  ]
-
-
+  ];
 
   return (
     <>
@@ -167,16 +164,15 @@ const PricingPlans: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {staticPlans.map((plan) => {
-              const Icon = plan.icon
-              const isPopular = plan.isPopular
-              const yearlyPrice = Math.floor(plan.price * 12 * 0.8)
-              const displayPrice = billingCycle === 'yearly' ? yearlyPrice : plan.price
+              const Icon = plan.icon;
+              const isPopular = plan.isPopular;
+              const yearlyPrice = Math.floor(plan.price * 12 * 0.8);
+              const displayPrice = billingCycle === 'yearly' ? yearlyPrice : plan.price;
 
               return (
                 <div
                   key={plan.id}
-                  className={`bg-white rounded-2xl shadow-sm hover:shadow-lg transform hover:-translate-y-2 p-6 relative ${isPopular ? 'ring-2 ring-blue-500' : ''
-                    }`}
+                  className={`bg-white rounded-2xl shadow-sm hover:shadow-lg transform hover:-translate-y-2 p-6 relative ${isPopular ? 'ring-2 ring-blue-500' : ''}`}
                 >
                   {isPopular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -196,21 +192,21 @@ const PricingPlans: React.FC = () => {
                     <p className="text-red-500 text-sm">{plan.commission}</p>
                     <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
 
-<button
-  onClick={() => {
-    console.log("Subscribe clicked ✅");
-    const user = requireLogin();
-    if (!user) {
-      console.log("User not logged in ❌");
-      return;
-    }
-    console.log("User is logged in ✅");
-  }}
-  className="w-full bg-red-600 text-white py-3 rounded-lg mt-2"
->
-  🔥 TEST Subscribe Now
-</button>
-
+                    <button
+                      onClick={() => {
+                        console.log("Subscribe clicked ✅");
+                        const user = requireLogin();
+                        if (!user) {
+                          alert("Please log in to continue with payment.");
+                          return;
+                        }
+                        console.log("User is logged in ✅");
+                        handlePayment(displayPrice * 100);
+                      }}
+                      className="w-full bg-black text-white py-3 rounded-lg mt-2"
+                    >
+                      Subscribe Now
+                    </button>
 
                     <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
                       {plan.features.map((feature, index) => (
@@ -232,4 +228,4 @@ const PricingPlans: React.FC = () => {
   )
 }
 
-export default PricingPlans
+export default PricingPlans;
