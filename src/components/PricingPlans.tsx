@@ -12,45 +12,45 @@ const PricingPlans: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [userType, setUserType] = useState<'advertisers' | 'media_owners'>('advertisers')
 
-const handlePayment = async (amount: number) => {
-  const user = requireLogin();
-  try {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount })
-    });
+  const handlePayment = async (amount: number) => {
+    const user = requireLogin();
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
+      });
 
-    const data = await response.json();
-    if (!data.success) throw new Error(data.error);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
 
-    const options = {
-      key: 'rzp_test_qV8BGFcUas9r3A',
-      amount: data.order.amount,
-      currency: 'INR',
-      name: 'Your Company Name',
-      description: 'Subscription Payment',
-      order_id: data.order.id,
-      handler: function (response: any) {
-        alert('Payment successful!');
-        console.log('Payment response:', response);
-      },
-      prefill: {
-        name: user.name || '',
-        email: user.email || '',
-        contact: user.phone || ''
-      },
-      theme: {
-        color: '#3399cc'
-      }
-    };
+      const options = {
+        key: 'rzp_test_qV8BGFcUas9r3A',
+        amount: data.order.amount,
+        currency: 'INR',
+        name: 'Your Company Name',
+        description: 'Subscription Payment',
+        order_id: data.order.id,
+        handler: function (response: any) {
+          alert('Payment successful!');
+          console.log('Payment response:', response);
+        },
+        prefill: {
+          name: user.name || '',
+          email: user.email || '',
+          contact: user.phone || ''
+        },
+        theme: {
+          color: '#3399cc'
+        }
+      };
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-  } catch (error) {
-    console.error('Payment failed:', error);
-  }
-};
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      console.error('Payment failed:', error);
+    }
+  };
 
 
   const staticPlans = [
@@ -196,20 +196,20 @@ const handlePayment = async (amount: number) => {
                     <p className="text-red-500 text-sm">{plan.commission}</p>
                     <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
 
-<button
-  onClick={() => {
-    console.log("Subscribe clicked");
-    const user = requireLogin();
-    if (!user) return;
-
-    handlePayment(displayPrice * 100);
-  }}
->
-  Subscribe Now
-</button>
-
-
-
+                    <button
+                      onClick={() => {
+                        console.log("✅ Subscribe clicked");
+                        const user = requireLogin();
+                        if (!user) {
+                          console.log("🚫 User not logged in");
+                          return;
+                        }
+                        handlePayment(displayPrice * 100);
+                      }}
+                      className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
+                    >
+                      Subscribe Now
+                    </button>
 
                     <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
                       {plan.features.map((feature, index) => (
