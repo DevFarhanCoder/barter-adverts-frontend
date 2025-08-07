@@ -5,7 +5,7 @@ export function requireLogin() {
   if (!user) {
     setTimeout(() => {
       alert("Please create an account to make a payment.");
-      window.location.href = "/login";
+      window.location.href = "/signup";
     }, 0); // Allow browser to render alert
     return null;
   }
