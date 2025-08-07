@@ -14,9 +14,6 @@ const PricingPlans: React.FC = () => {
 
 const handlePayment = async (amount: number) => {
   const user = requireLogin();
-  console.log("CHECK USER BEFORE PAYMENT:", user);
-  
-  if (!user) return;
   try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
       method: 'POST',
@@ -199,16 +196,19 @@ const handlePayment = async (amount: number) => {
                     <p className="text-red-500 text-sm">{plan.commission}</p>
                     <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
 
-                    <button
-                      onClick={() => {
-                      const user = requireLogin();
-                      if (!user) return;
-                      handlePayment(displayPrice * 100);
-                      }}
-                      className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
-                      >
-                      Subscribe Now
-                    </button>
+<button
+  onClick={() => {
+    const user = requireLogin();
+    console.log("[Subscribe Now] User =", user);
+
+    if (!user) {
+      console.log("User not logged in. Popup should appear.");
+      return;
+    }
+
+    handlePayment(displayPrice * 100);
+  }}
+
 
                     <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
                       {plan.features.map((feature, index) => (
