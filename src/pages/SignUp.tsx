@@ -69,8 +69,7 @@ const SignUp: React.FC = () => {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formData.phoneNumber }),
-
+        body: JSON.stringify({ phone: `+91${formData.phoneNumber}`, otp }),
       })
 
       const data = await res.json()
@@ -85,6 +84,7 @@ const SignUp: React.FC = () => {
       alert('OTP verification failed')
     }
   }
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,7 +109,7 @@ const SignUp: React.FC = () => {
 
       if (res.ok) {
         localStorage.setItem("user", JSON.stringify({ token: data.token, ...data.user }))
-        navigate('/marketplace')
+        navigate('/dashboard')
       } else {
         alert(data.message || 'Signup failed')
       }
@@ -324,8 +324,8 @@ const SignUp: React.FC = () => {
             {/* Sign In Link */}
             <div className="text-center">
               <span className="text-gray-600">Already have an account? </span>
-              <a href="/signin" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign In
+              <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+                Log In
               </a>
             </div>
           </form>

@@ -4,26 +4,6 @@ import { Handshake } from 'lucide-react'
 const Footer: React.FC = () => {
   return (
     <>
-      {/* Final CTA Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-            Ready to start bartering?
-          </h2>
-          <p className="text-xl text-gray-600 mb-8">
-            Join thousands of businesses already using our platform!
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="/signup" className="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium text-center">
-              Start Free Trial ➜
-            </a>
-            <a href="/contact" className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium text-center">
-              Contact Sales
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* Stats Section */}
       <section className="py-16 bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
