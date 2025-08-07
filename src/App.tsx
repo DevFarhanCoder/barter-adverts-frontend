@@ -64,7 +64,6 @@ function AppContent() {
         <Route path="/pricing" element={<PricingPlans />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
-        <Route path="/signin" element={<SignIn />} />
         <Route
           path="/marketplace"
           element={
