@@ -208,6 +208,11 @@ const handlePayment = async (amount: number) => {
 
     handlePayment(displayPrice * 100);
   }}
+  className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
+>
+  Subscribe Now
+</button>
+
 
 
                     <ul className="mt-6 space-y-2 text-left text-sm text-gray-600">
