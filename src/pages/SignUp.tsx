@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-
 const SignUp: React.FC = () => {
   const [formData, setFormData] = useState({
     userType: 'advertiser',
@@ -13,7 +12,13 @@ const SignUp: React.FC = () => {
     email: '',
     password: ''
   })
+
   const [loading, setLoading] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [otpVerified, setOtpVerified] = useState(false)
+
+  const navigate = useNavigate()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -30,43 +35,88 @@ const SignUp: React.FC = () => {
     }))
   }
 
-  const navigate = useNavigate()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setLoading(true)
-
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    });
-
-    const data = await res.json()
-
-    if (res.ok) {
-      // ✅ Store token (or whole user) to localStorage
-      localStorage.setItem("user", JSON.stringify({ token: data.token, ...data.user }));
-
-      // ✅ Navigate to the app
-      navigate('/marketplace');
-    } else {
-      alert(data.message || 'Signup failed');
+  const handleSendOtp = async () => {
+    if (!formData.phoneNumber) {
+      alert('Please enter a phone number')
+      return
     }
 
-  } catch (err) {
-    console.error('Signup error:', err);
-    alert('Something went wrong. Try again later.');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: `+91${formData.phoneNumber}` }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        alert('OTP sent to your phone')
+        setOtpSent(true)
+      } else {
+        alert(data.message || 'Failed to send OTP')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Something went wrong while sending OTP')
+    }
   }
 
-  setLoading(false);
-};
+  const handleVerifyOtp = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: `+91${formData.phoneNumber}`, otp }),
+      })
 
+      const data = await res.json()
+      if (res.ok) {
+        alert('OTP verified successfully')
+        setOtpVerified(true)
+      } else {
+        alert(data.message || 'Invalid OTP')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('OTP verification failed')
+    }
+  }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
 
+    if (!otpVerified) {
+      alert('Please verify OTP before signing up')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        localStorage.setItem("user", JSON.stringify({ token: data.token, ...data.user }))
+        navigate('/marketplace')
+      } else {
+        alert(data.message || 'Signup failed')
+      }
+
+    } catch (err) {
+      console.error('Signup error:', err)
+      alert('Something went wrong. Try again later.')
+    }
+
+    setLoading(false)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,7 +128,7 @@ const SignUp: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* User Type Selection */}
+            {/* User Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">I am a:</label>
               <div className="space-y-2">
@@ -89,7 +139,7 @@ const SignUp: React.FC = () => {
                     value="advertiser"
                     checked={formData.userType === 'advertiser'}
                     onChange={() => handleUserTypeChange('advertiser')}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 border-gray-300"
                   />
                   <span className="ml-2 text-gray-700">Advertiser (I want to advertise)</span>
                 </label>
@@ -100,14 +150,14 @@ const SignUp: React.FC = () => {
                     value="media_owner"
                     checked={formData.userType === 'media_owner'}
                     onChange={() => handleUserTypeChange('media_owner')}
-                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 border-gray-300"
                   />
                   <span className="ml-2 text-gray-700">Media Owner (I have ad space)</span>
                 </label>
               </div>
             </div>
 
-            {/* Name Fields */}
+            {/* First & Last Name */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -118,7 +168,7 @@ const SignUp: React.FC = () => {
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 />
               </div>
@@ -131,7 +181,7 @@ const SignUp: React.FC = () => {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 />
               </div>
@@ -147,7 +197,7 @@ const SignUp: React.FC = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 required
               />
             </div>
@@ -162,7 +212,7 @@ const SignUp: React.FC = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 minLength={6}
                 required
               />
@@ -182,7 +232,7 @@ const SignUp: React.FC = () => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
-                  className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg"
                   placeholder="9876543210"
                   required
                 />
@@ -198,11 +248,11 @@ const SignUp: React.FC = () => {
                 name="companyName"
                 value={formData.companyName}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
 
-            {/* Brief Description */}
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Brief Description</label>
               <textarea
@@ -210,19 +260,46 @@ const SignUp: React.FC = () => {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
                 placeholder="Tell us about your business and what you're looking to trade..."
               />
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
-            >
-              {loading ? 'Creating Account...' : 'Create Account & Send OTP'}
-            </button>
+            {/* OTP Buttons and Input */}
+            {!otpSent ? (
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+              >
+                Send OTP
+              </button>
+            ) : !otpVerified ? (
+              <>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Enter OTP"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg mt-3 hover:bg-green-700"
+                >
+                  Verify OTP
+                </button>
+              </>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? 'Creating Account...' : 'Complete Signup'}
+              </button>
+            )}
 
             {/* Sign In Link */}
             <div className="text-center">
