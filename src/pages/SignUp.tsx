@@ -69,7 +69,8 @@ const SignUp: React.FC = () => {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${formData.phoneNumber}`, otp }),
+        body: JSON.stringify({ phone: formData.phoneNumber }),
+
       })
 
       const data = await res.json()
@@ -228,18 +229,33 @@ const SignUp: React.FC = () => {
               </label>
               <PhoneInput
                 country={'in'}
-                value={formData.phoneNumber}
-                onChange={(phone) =>
-                  setFormData((prev) => ({ ...prev, phoneNumber: phone }))
-                }
                 enableSearch={true}
-                inputStyle={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
-                containerStyle={{ marginBottom: '0.5rem' }}
+                value={formData.phoneNumber}
+                onChange={(phone) => setFormData(prev => ({ ...prev, phoneNumber: phone }))}
                 inputProps={{
-                  name: 'phone',
+                  name: 'phoneNumber',
                   required: true,
                 }}
+                inputStyle={{
+                  width: '100%',
+                  height: '45px',
+                  paddingLeft: '48px', // Ensures number doesn't overlap flag
+                  borderRadius: '8px',
+                  border: '1px solid #ccc',
+                  fontSize: '16px'
+                }}
+                buttonStyle={{
+                  borderTopLeftRadius: '8px',
+                  borderBottomLeftRadius: '8px',
+                  border: '1px solid #ccc',
+                  background: '#fff'
+                }}
+                containerStyle={{
+                  width: '100%',
+                  marginBottom: '0.5rem'
+                }}
               />
+
               <p className="text-xs text-blue-600 mt-1">We'll send an OTP to verify your number</p>
             </div>
 
