@@ -109,9 +109,11 @@ const SignUp: React.FC = () => {
       const data = await res.json();
 
       if (res.ok) {
-        alert(data.message); // or show success toast
-        navigate('/login');  // ✅ Redirect after successful signup
-      } else {
+        console.log('✅ Token:', data.token); // Add this line
+        localStorage.setItem('token', data.token);
+        navigate('/dashboard');
+      }
+      else {
         setError(data.message || 'Something went wrong.');
       }
 

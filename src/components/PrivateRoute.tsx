@@ -1,15 +1,10 @@
 import { Navigate } from 'react-router-dom';
 
-const PrivateRoute = ({ children }: { children: JSX.Element }) => {
-  const user = localStorage.getItem('user');
+import React from 'react';
 
-  if (!user) {
-    // Not logged in — redirect to login
-    return <Navigate to="/signin" replace />;
-  }
-
-  // User is authenticated — allow access
-  return children;
+const PrivateRoute: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+  const isAuthenticated = !!localStorage.getItem('token');
+  return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 export default PrivateRoute;
