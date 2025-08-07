@@ -198,20 +198,16 @@ const handlePayment = async (amount: number) => {
 
 <button
   onClick={() => {
+    console.log("Subscribe clicked");
     const user = requireLogin();
-    console.log("[Subscribe Now] User =", user);
-
-    if (!user) {
-      console.log("User not logged in. Popup should appear.");
-      return;
-    }
+    if (!user) return;
 
     handlePayment(displayPrice * 100);
   }}
-  className={`w-full py-3 rounded-lg font-medium ${isPopular ? 'bg-blue-600' : 'bg-gray-900'} text-white mt-2`}
 >
   Subscribe Now
 </button>
+
 
 
 
