@@ -1,3 +1,5 @@
+import { apiFetch } from "../utils/api";
+
 export type Listing = {
   id: string;
   title: string;
@@ -25,3 +27,8 @@ export type MessageThread = {
   unread: number;
   updatedAt: string;
 };
+
+
+export async function getMyBarters() {
+  return apiFetch("/api/barters/me");
+}
