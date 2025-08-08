@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Star, Shield, User, X } from 'lucide-react';
 
+const API_BASE = 'https://barter-adverts-backend.onrender.com';
+
 interface Listing {
   _id?: string;
   type: string;
@@ -32,6 +34,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
   setListings,
 }) => {
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [newListing, setNewListing] = useState<Listing>({
     type: 'Add Barter',
     title: '',
@@ -44,13 +47,14 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     image: '',
   });
 
+  // Load marketplace (public)
   useEffect(() => {
     const fetchListings = async () => {
       try {
-        const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters');
+        const res = await fetch(`${API_BASE}/api/barters`);
         const data = await res.json();
 
-        if (!Array.isArray(data)) throw new Error('Expected array but got: ' + typeof data);
+        if (!Array.isArray(data)) throw new Error('Expected array from API');
 
         const valid = data.filter(
           (item) =>
@@ -67,37 +71,60 @@ const Marketplace: React.FC<MarketplaceProps> = ({
       }
     };
     fetchListings();
-  }, []);
+  }, [setListings]);
 
+  // ✅ Create barter with Authorization header so backend sets ownerId
   const handleAddListing = async () => {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      alert('Please log in to add a barter.');
+      // optionally redirect to login
+      // window.location.href = '/login';
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters', {
+      const res = await fetch(`${API_BASE}/api/barters`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // <-- IMPORTANT
+        },
         body: JSON.stringify(newListing),
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        setListings(prev => [...prev, data]);
-        setShowModal(false);
-        setNewListing({
-          type: 'Add Barter',
-          title: '',
-          location: '',
-          rating: 4.5,
-          description: '',
-          seeking: '',
-          contact: '',
-          verified: true,
-          image: '',
-        });
-      } else {
+      if (!res.ok) {
         console.error('Error saving listing', data);
+        alert(data?.message || 'Failed to add barter');
+        return;
       }
+
+      // Push new item into local list so UI updates immediately
+      setListings((prev) => [data, ...prev]);
+
+      // Reset form
+      setShowModal(false);
+      setNewListing({
+        type: 'Add Barter',
+        title: '',
+        location: '',
+        rating: 4.5,
+        description: '',
+        seeking: '',
+        contact: '',
+        verified: true,
+        image: '',
+      });
+      setSelectedFilter('All');
     } catch (err) {
       console.error('Error posting listing', err);
+      alert('Network error while adding barter');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -123,7 +150,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
           <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="relative flex-1 max-w-lg">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Search for barters..."
@@ -133,7 +160,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
                 />
               </div>
               <div className="flex gap-2">
-                {["All", "Add Barter", "Available Barters"].map((filter) => (
+                {['All', 'Add Barter', 'Available Barters'].map((filter) => (
                   <button
                     key={filter}
                     onClick={() => {
@@ -155,19 +182,52 @@ const Marketplace: React.FC<MarketplaceProps> = ({
 
           {/* Modal Popup for Add Barter */}
           {showModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg w-full max-w-xl shadow-xl relative">
-                <button onClick={() => setShowModal(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                >
                   <X className="w-5 h-5" />
                 </button>
                 <h3 className="text-xl font-bold mb-4">Add New Barter</h3>
-                <input className="mb-2 w-full border rounded p-2" placeholder="Title" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} />
-                <input className="mb-2 w-full border rounded p-2" placeholder="Location" value={newListing.location} onChange={e => setNewListing({ ...newListing, location: e.target.value })} />
-                <textarea className="mb-2 w-full border rounded p-2" placeholder="Description" value={newListing.description} onChange={e => setNewListing({ ...newListing, description: e.target.value })}></textarea>
-                <input className="mb-2 w-full border rounded p-2" placeholder="Seeking" value={newListing.seeking} onChange={e => setNewListing({ ...newListing, seeking: e.target.value })} />
-                <input className="mb-2 w-full border rounded p-2" placeholder="Contact Info" value={newListing.contact} onChange={e => setNewListing({ ...newListing, contact: e.target.value })} />
-                <button onClick={handleAddListing} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
-                  Done
+                <input
+                  className="mb-2 w-full border rounded p-2"
+                  placeholder="Title"
+                  value={newListing.title}
+                  onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
+                />
+                <input
+                  className="mb-2 w-full border rounded p-2"
+                  placeholder="Location"
+                  value={newListing.location}
+                  onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
+                />
+                <textarea
+                  className="mb-2 w-full border rounded p-2"
+                  placeholder="Description"
+                  value={newListing.description}
+                  onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
+                />
+                <input
+                  className="mb-2 w-full border rounded p-2"
+                  placeholder="Seeking"
+                  value={newListing.seeking}
+                  onChange={(e) => setNewListing({ ...newListing, seeking: e.target.value })}
+                />
+                <input
+                  className="mb-4 w-full border rounded p-2"
+                  placeholder="Contact Info"
+                  value={newListing.contact}
+                  onChange={(e) => setNewListing({ ...newListing, contact: e.target.value })}
+                />
+
+                <button
+                  onClick={handleAddListing}
+                  disabled={submitting}
+                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-60"
+                >
+                  {submitting ? 'Saving…' : 'Done'}
                 </button>
               </div>
             </div>
@@ -178,15 +238,22 @@ const Marketplace: React.FC<MarketplaceProps> = ({
             {filteredListings.map((listing, idx) => {
               if (!listing || !listing.title) return null;
               return (
-                <div key={listing._id || idx} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+                <div
+                  key={listing._id || idx}
+                  className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden"
+                >
                   <div className="relative">
                     <div className="h-48 bg-gray-200 flex items-center justify-center">
                       <div className="text-gray-400 text-6xl">📷</div>
                     </div>
                     <div className="absolute top-4 left-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        listing.type === 'Add Barter' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                      }`}>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          listing.type === 'Add Barter'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}
+                      >
                         {listing.type}
                       </span>
                     </div>

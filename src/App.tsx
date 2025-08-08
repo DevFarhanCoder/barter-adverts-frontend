@@ -1,3 +1,4 @@
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Header from './components/Header';
@@ -13,8 +14,16 @@ import UserDashboard from './pages/UserDashboard';
 import PrivateRoute from './components/PrivateRoute';
 import SignIn from './pages/SignIn';
 import DashboardHome from './pages/DashboardHome';
-import AppointmentTable from './components/AppointmentTable';
 
+// Nested dashboard pages
+import Listings from './pages/Listings';
+import Messages from './pages/Messages';
+import Settings from './pages/Settings';
+
+// React Query
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// ---------- types ----------
 interface Listing {
   id: number;
   type: string;
@@ -28,6 +37,10 @@ interface Listing {
   image: string;
 }
 
+// Create a single QueryClient instance at module scope
+const queryClient = new QueryClient();
+
+// ---------- AppContent ----------
 function AppContent() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,7 +48,7 @@ function AppContent() {
 
   const location = useLocation();
 
-  // Hide header and footer for dashboard and login pages
+  // Hide header/footer for dashboard and login
   const hideLayout = ['/dashboard', '/login'].some(path =>
     location.pathname.startsWith(path)
   );
@@ -56,6 +69,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
       {!hideLayout && <Header />}
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
@@ -77,6 +91,7 @@ function AppContent() {
             />
           }
         />
+
         <Route
           path="/dashboard"
           element={
@@ -86,22 +101,24 @@ function AppContent() {
           }
         >
           <Route index element={<DashboardHome />} />
-          <Route path="appointments" element={<AppointmentTable />} />
-          {/* Add more nested routes as needed */}
+          <Route path="listings" element={<Listings />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
-
       </Routes>
+
       {!hideLayout && <Footer />}
     </div>
   );
 }
 
-function App() {
+// ---------- App (root) ----------
+export default function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AppContent />
+      </Router>
+    </QueryClientProvider>
   );
 }
-
-export default App;
