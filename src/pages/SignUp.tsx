@@ -21,6 +21,7 @@ const SignUp: React.FC = () => {
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
   const [otpVerified, setOtpVerified] = useState(false)
+  const [otpToken, setOtpToken] = useState<string | null>(null)
 
   const navigate = useNavigate()
 
@@ -65,66 +66,64 @@ const SignUp: React.FC = () => {
     }
   }
 
-  const handleVerifyOtp = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${formData.phoneNumber}`, otp }),
-      })
+const handleVerifyOtp = async () => {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: `+91${formData.phoneNumber}`, otp }),
+    });
 
-      const data = await res.json()
-      if (res.ok) {
-        alert('OTP verified successfully')
-        setOtpVerified(true)
-      } else {
-        alert(data.message || 'Invalid OTP')
-      }
-    } catch (err) {
-      console.error(err)
-      alert('OTP verification failed')
+    const data = await res.json();
+    if (res.ok) {
+      alert('OTP verified successfully');
+      setOtpVerified(true);
+      setOtpToken(data.otp_token); // store token from backend
+    } else {
+      alert(data.message || 'Invalid OTP');
     }
+  } catch (err) {
+    console.error(err);
+    alert('OTP verification failed');
+  }
+};
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!otpVerified || !otpToken) {
+    alert('Please verify OTP before signing up');
+    return;
   }
 
+  setLoading(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...formData,
+        phoneNumber: `+91${formData.phoneNumber}`,
+        otp_token: otpToken, // pass to backend
+      }),
+    });
 
-    if (!otpVerified) {
-      alert('Please verify OTP before signing up')
-      return
+    const data = await res.json();
+
+    if (res.ok) {
+      localStorage.setItem('token', data.token);
+      navigate('/dashboard');
+    } else {
+      setError(data.message || 'Something went wrong.');
     }
-
-    setLoading(true)
-
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.log('✅ Token:', data.token); // Add this line
-        localStorage.setItem('token', data.token);
-        navigate('/dashboard');
-      }
-      else {
-        setError(data.message || 'Something went wrong.');
-      }
-
-
-    } catch (err) {
-      console.error('Signup error:', err)
-      alert('Something went wrong. Try again later.')
-    }
-
-    setLoading(false)
+  } catch (err) {
+    console.error('Signup error:', err);
+    alert('Something went wrong. Try again later.');
   }
+
+  setLoading(false);
+};
 
 
   return (
