@@ -1,20 +1,30 @@
+// src/pages/Settings.tsx
 import React, { useEffect, useState } from 'react';
 import { Save, Moon, Sun, Bell } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Settings: React.FC = () => {
+  const { user, setUser } = useAuth(); // pull from AuthContext
   const storedUser = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+    try {
+      return user || JSON.parse(localStorage.getItem('user') || '{}');
+    } catch {
+      return {};
+    }
   })();
 
   const [name, setName] = useState(storedUser?.name || '');
   const [email, setEmail] = useState(storedUser?.email || '');
+  const [role, setRole] = useState(storedUser?.role || 'advertiser'); // ✅ ensure role is in state
   const [password, setPassword] = useState('');
   const [notifTrade, setNotifTrade] = useState(true);
   const [notifMsgs, setNotifMsgs] = useState(true);
   const [dark, setDark] = useState(
-    (localStorage.getItem('theme') ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'
+    (localStorage.getItem('theme') ??
+      (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'
   );
 
+  // Handle theme switching
   useEffect(() => {
     const root = document.documentElement;
     if (dark) {
@@ -26,15 +36,18 @@ const Settings: React.FC = () => {
     }
   }, [dark]);
 
+  // Save profile
   const saveProfile = async () => {
-    // TODO: call your backend profile endpoint here
-    localStorage.setItem('user', JSON.stringify({ ...storedUser, name, email }));
+    const updatedUser = { ...storedUser, name, email, role };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser); // ✅ update AuthContext
     alert('Profile saved');
   };
 
+  // Change password
   const changePassword = async () => {
     if (!password.trim()) return alert('Enter a new password');
-    // TODO: call your backend change-password endpoint here
+    // TODO: call backend change-password endpoint
     setPassword('');
     alert('Password updated');
   };
@@ -74,6 +87,20 @@ const Settings: React.FC = () => {
             className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
           />
         </div>
+
+        {/* Role Selection */}
+        <div className="mt-4">
+          <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Role</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+          >
+            <option value="advertiser">Advertiser</option>
+            <option value="media_owner">Media Owner</option>
+          </select>
+        </div>
+
         <button
           onClick={saveProfile}
           className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"

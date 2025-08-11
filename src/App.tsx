@@ -1,32 +1,35 @@
 // src/App.tsx
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import Home from './pages/Home';
-import Contact from './pages/Contact';
-import SignUp from './pages/SignUp';
-import HowItWorks from './components/HowItWorks';
-import PricingPlans from './components/PricingPlans';
-import Marketplace from './components/MarketPlace';
-import { About } from './components/About';
-import UserDashboard from './pages/UserDashboard';
-import PrivateRoute from './components/PrivateRoute';
-import SignIn from './pages/SignIn';
-import DashboardHome from './pages/DashboardHome';
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import Home from "./pages/Home";
+import Contact from "./pages/Contact";
+import SignUp from "./pages/SignUp";
+import HowItWorks from "./components/HowItWorks";
+import PricingPlans from "./components/PricingPlans";
+import Marketplace from "./components/MarketPlace";
+import { About } from "./components/About";
+import UserDashboard from "./pages/UserDashboard";
+import PrivateRoute from "./components/PrivateRoute";
+import SignIn from "./pages/SignIn";
+import DashboardHome from "./pages/DashboardHome";
 
 // Nested dashboard pages
-import Listings from './pages/Listings';
-import Messages from './pages/Messages';
-import Settings from './pages/Settings';
+import Listings from "./pages/Listings";
+import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
 
 // React Query
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// ---------- types ----------
-interface Listing {
-  id: number;
-  type: string;
+// ---------- types (align with backend) ----------
+type UserRole = "advertiser" | "media_owner";
+
+export interface Listing {
+  _id?: string;              // backend uses _id
+  ownerRole?: UserRole;      // optional for legacy data
+  type?: string;             // legacy pill text (e.g., "Available Barters")
   title: string;
   location: string;
   rating: number;
@@ -34,36 +37,39 @@ interface Listing {
   seeking: string;
   contact: string;
   verified: boolean;
-  image: string;
+  image?: string;
 }
 
 // Create a single QueryClient instance at module scope
 const queryClient = new QueryClient();
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 // ---------- AppContent ----------
 function AppContent() {
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('All');
+  const [listings, setListings] = useState<Marketplace.Listing[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState<"All" | "Media Owners" | "Advertisers">("All");
 
   const location = useLocation();
 
-  // Hide header/footer for dashboard and login
-  const hideLayout = ['/dashboard', '/login'].some(path =>
-    location.pathname.startsWith(path)
-  );
+  // Hide header/footer for dashboard and login (add others if needed)
+  const hideLayout = ["/dashboard", "/login"].some((path) => location.pathname.startsWith(path));
 
   useEffect(() => {
-    const fetchListings = async () => {
+    let alive = true;
+    (async () => {
       try {
-        const res = await fetch('https://barter-adverts-backend.onrender.com/api/barters');
+        const res = await fetch(`${API_BASE}/api/barters`);
         const data = await res.json();
-        setListings(data);
+        if (alive && Array.isArray(data)) setListings(data);
       } catch (error) {
-        console.error('Failed to fetch listings', error);
+        console.error("Failed to fetch listings", error);
       }
+    })();
+    return () => {
+      alive = false;
     };
-    fetchListings();
   }, []);
 
   return (
@@ -78,6 +84,7 @@ function AppContent() {
         <Route path="/pricing" element={<PricingPlans />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
+
         <Route
           path="/marketplace"
           element={
@@ -121,4 +128,9 @@ export default function App() {
       </Router>
     </QueryClientProvider>
   );
+}
+
+// Allow Marketplace to import the Listing type from here if needed
+export namespace Marketplace {
+  export type Listing = Listing;
 }
