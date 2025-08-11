@@ -1,47 +1,118 @@
-import React, { useState, useEffect } from 'react';
-import { FaMoon, FaSun, FaBell, FaUserCircle } from 'react-icons/fa';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronDown, LogOut, Settings, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const Topbar = () => {
-  // prefer saved theme, else system preference
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  const [darkMode, setDarkMode] = useState<boolean>(
-    (localStorage.getItem('theme') ?? (prefersDark ? 'dark' : 'light')) === 'dark'
-  );
-
+function getUser() {
   useEffect(() => {
-    const root = document.documentElement;
-    if (darkMode) {
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
+  const close = () => setOpen(false);
+  window.addEventListener('close-profile-menu', close);
+  return () => window.removeEventListener('close-profile-menu', close);
+}, []);
+
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+const Topbar: React.FC = () => {
+  const navigate = useNavigate();
+  const user = getUser();
+  const [open, setOpen] = useState(false);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  // close on click outside
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const signOut = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   return (
-    <header className="h-16 bg-white dark:bg-gray-800 border-b dark:border-gray-700 flex items-center justify-between px-6 sticky top-0 z-30">
-      <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Dashboard</h2>
-
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="text-xl text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-yellow-400 transition"
-          aria-label="Toggle theme"
+    <div className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:bg-gray-900/80">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        {/* Back to Home */}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
         >
-          {darkMode ? <FaSun /> : <FaMoon />}
-        </button>
+          <ArrowLeft className="h-4 w-4" />
+          Back to Home
+        </Link>
 
-        <button className="text-gray-600 dark:text-gray-300 text-xl hover:text-blue-500 transition" aria-label="Notifications">
-          <FaBell />
-        </button>
+        {/* Profile */}
+        <div className="relative" ref={popRef}>
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-3 rounded-full border px-3 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
+              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <div className="hidden sm:block">
+              <div className="font-medium text-gray-900 dark:text-gray-100">
+                {user?.firstName ? `${user.firstName} ${user?.lastName ?? ''}`.trim() : 'User'}
+              </div>
+              <div className="text-xs text-gray-500">{user?.email ?? '—'}</div>
+            </div>
+            <ChevronDown className="h-4 w-4 text-gray-400" />
+          </button>
 
-        <button className="text-gray-600 dark:text-gray-300 text-2xl hover:text-blue-500 transition" aria-label="Profile">
-          <FaUserCircle />
-        </button>
+          {/* Menu (simple, no fancy transitions) */}
+          {open && (
+            <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <div className="px-3 py-2">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {user?.firstName ? `${user.firstName} ${user?.lastName ?? ''}`.trim() : 'User'}
+                </div>
+                <div className="truncate text-xs text-gray-500">{user?.email ?? '—'}</div>
+              </div>
+              <div className="border-t dark:border-gray-700" />
+              <Link
+                to="/dashboard"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                My Dashboard
+              </Link>
+              <Link
+                to="/settings"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+              <button
+                onClick={signOut}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </header>
+    </div>
   );
 };
 
 export default Topbar;
+function setOpen(arg0: boolean) {
+  throw new Error('Function not implemented.');
+}
+

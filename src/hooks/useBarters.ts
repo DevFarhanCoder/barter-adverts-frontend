@@ -1,98 +1,131 @@
 // src/hooks/useBarters.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-export type Barter = {
-  _id: string;
-  title: string;
-  description?: string;
-  category?: string;
-  location?: string;
-  status?: 'active' | 'archived' | 'pending' | 'proposed' | 'countered' | 'completed';
-  createdAt?: string;
-  ownerId?: string;
+const CLICKS_KEY = 'barter_clicks_v1';
+const UNREAD_KEY = 'unreadMessages';
+
+type ClickBucket = { d: string; c: number };
+type ClickStore = Record<string, { total: number; buckets: ClickBucket[] }>;
+
+function todayKey() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function readClicks(): ClickStore {
+  try {
+    const raw = localStorage.getItem(CLICKS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeClicks(store: ClickStore) {
+  localStorage.setItem(CLICKS_KEY, JSON.stringify(store));
+}
+
+/** Call this anywhere (e.g., when a user opens a listing) */
+export function recordListingClick(id: string | number) {
+  const k = String(id);
+  const store = readClicks();
+  const item = store[k] ?? { total: 0, buckets: [] };
+
+  // increment total
+  item.total += 1;
+
+  // increment today's bucket
+  const key = todayKey();
+  const idx = item.buckets.findIndex(b => b.d === key);
+  if (idx >= 0) item.buckets[idx].c += 1;
+  else item.buckets.push({ d: key, c: 1 });
+
+  // keep only last 30 days of buckets
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  item.buckets = item.buckets.filter(b => new Date(b.d) >= cutoff);
+
+  store[k] = item;
+  writeClicks(store);
+}
+
+function sumClicks7d(store: ClickStore) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 6); // include today + 6 previous days
+  let total = 0;
+  for (const id in store) {
+    for (const bucket of store[id].buckets) {
+      const d = new Date(bucket.d);
+      if (d >= cutoff) total += bucket.c;
+    }
+  }
+  return total;
+}
+
+/** Helper to sum total clicks across all listings */
+function sumTotalClicks(store: ClickStore) {
+  return Object.values(store).reduce((acc, v) => acc + (v.total || 0), 0);
+}
+
+type Barter = {
+  _id?: string;
+  id?: string | number;
+  status?: string;
+  // any other fields you have…
 };
 
-const API = (import.meta.env.VITE_API_BASE_URL || 'https://barter-adverts-backend.onrender.com').replace(/\/+$/,'');
+type Metrics = {
+  totalListings: number;
+  activeListings: number;
+  archivedListings: number;
+  totalClicks: number;
+  clicks7d: number;
+  unreadMessages: number;
+};
 
-function makeHeaders(): HeadersInit {
-  const token = localStorage.getItem('token'); // Always get token from localStorage
-  const h: HeadersInit = { 'Content-Type': 'application/json' };
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
+async function fetchBarters(token?: string) {
+  const base = import.meta.env.VITE_API_BASE_URL;
+  const url = token ? `${base}/api/barters/me` : `${base}/api/barters`;
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) throw new Error(`Fetch barters failed (${res.status})`);
+  return res.json();
 }
 
-async function http<T = any>(path: string, opts: RequestInit = {}) {
-  const res = await fetch(`${API}${path}`, opts);
+export function useBarters(_unused?: unknown, token?: string) {
+  const bartersQ = useQuery({
+    queryKey: ['barters', token ? 'me' : 'public'],
+    queryFn: () => fetchBarters(token ?? undefined),
+  });
 
-  if (res.status === 204) return {} as T;
+  const metrics: Metrics = useMemo(() => {
+    const items: Barter[] = Array.isArray(bartersQ.data) ? bartersQ.data : [];
 
-  const ct = res.headers.get('content-type') || '';
-  // Prefer JSON if the server says it's JSON
-  if (ct.includes('application/json')) {
-    const data = await res.json();
-    if (!res.ok) {
-      const msg = (data && (data.message || data.error)) || `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    return data as T;
-  }
+    const totalListings = items.length;
+    const activeListings = items.filter(
+      (b) => String(b.status || '').toLowerCase() === 'active'
+    ).length;
+    const archivedListings = items.filter(
+      (b) => String(b.status || '').toLowerCase() === 'archived'
+    ).length;
 
-  // Fallback: read as text (likely HTML error page)
-  const text = await res.text();
-  if (!res.ok) {
-    // Trim noisy HTML; show first bytes as hint
-    const snippet = text?.slice(0, 200) || res.statusText;
-    throw new Error(snippet);
-  }
-  // If a non‑JSON success ever happens, return an empty object
-  return {} as T;
+    const clicksStore = readClicks();
+    const totalClicks = sumTotalClicks(clicksStore);
+    const clicks7d = sumClicks7d(clicksStore);
+    const unreadMessages = Number(localStorage.getItem(UNREAD_KEY) ?? 0);
+
+    return {
+      totalListings,
+      activeListings,
+      archivedListings,
+      totalClicks,
+      clicks7d,
+      unreadMessages,
+    };
+  }, [bartersQ.data]);
+
+  return { bartersQ, metrics };
 }
-
-
-export function useBarters(userId?: string) {
-  const qc = useQueryClient();
-  const headers = makeHeaders();
-
-  // READ (current user or specific owner)
-  const bartersQ = useQuery<Barter[]>({
-    queryKey: ['barters', userId ?? 'me'],
-    queryFn: () =>
-      userId
-        ? http<Barter[]>(`/api/barters?ownerId=${encodeURIComponent(userId)}`, { headers })
-        : http<Barter[]>('/api/barters/me', { headers }),
-  });
-
-  // CREATE
-  const createBarter = useMutation({
-    mutationFn: (payload: Partial<Barter>) =>
-      http<Barter>('/api/barters', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['barters', userId ?? 'me'] }),
-  });
-
-  // UPDATE
-  const updateBarter = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Barter> }) =>
-      http<Barter>(`/api/barters/${id}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(patch),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['barters', userId ?? 'me'] }),
-  });
-
-  // DELETE
-  const deleteBarter = useMutation({
-    mutationFn: (id: string) =>
-      http(`/api/barters/${id}`, {
-        method: 'DELETE',
-        headers,
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['barters', userId ?? 'me'] }),
-  });
-
-  return { bartersQ, createBarter, updateBarter, deleteBarter, API_BASE: API };
-}
+``
