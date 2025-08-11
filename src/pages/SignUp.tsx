@@ -1,10 +1,19 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
+/** Normalize to E.164: "+" + digits */
+function toE164(raw: string) {
+  const digits = (raw || '').replace(/\D/g, '');
+  return digits.startsWith('+') ? digits : `+${digits}`;
+}
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 const SignUp: React.FC = () => {
+  const navigate = useNavigate();
+
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     userType: 'advertiser',
@@ -14,117 +23,138 @@ const SignUp: React.FC = () => {
     companyName: '',
     description: '',
     email: '',
-    password: ''
-  })
+    password: '',
+  });
 
-  const [loading, setLoading] = useState(false)
-  const [otpSent, setOtpSent] = useState(false)
-  const [otp, setOtp] = useState('')
-  const [otpVerified, setOtpVerified] = useState(false)
-  const [otpToken, setOtpToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
 
-  const navigate = useNavigate()
+  // *** NEW: tokens needed for the flow ***
+  const [otpToken, setOtpToken] = useState<string | null>(null);      // from send-otp
+  const [proofToken, setProofToken] = useState<string | null>(null);  // from verify-otp
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((p) => ({ ...p, [name]: value }));
+  };
 
-  const handleUserTypeChange = (type: string) => {
-    setFormData(prev => ({
-      ...prev,
-      userType: type
-    }))
-  }
+  const handleUserTypeChange = (type: 'advertiser' | 'media_owner') => {
+    setFormData((p) => ({ ...p, userType: type }));
+  };
 
   const handleSendOtp = async () => {
+    setError('');
     if (!formData.phoneNumber) {
-      alert('Please enter a phone number')
-      return
+      alert('Please enter a phone number');
+      return;
+    }
+    const phone = toE164(formData.phoneNumber);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+
+      if (res.ok) {
+        // store otp_token for the next step
+        setOtpToken(data.otp_token ?? null);
+        setOtpSent(true);
+        alert('OTP sent to your phone');
+      } else {
+        setError(data.message || `Failed to send OTP (HTTP ${res.status})`);
+        alert(data.message || 'Failed to send OTP');
+      }
+    } catch (err) {
+      console.error('send-otp error:', err);
+      setError('Something went wrong while sending OTP.');
+      alert('Something went wrong while sending OTP');
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setError('');
+    if (!otpToken) {
+      setError('Missing OTP token. Please send OTP again.');
+      alert('Missing OTP token. Please send OTP again.');
+      return;
+    }
+    if (!otp) {
+      alert('Please enter the OTP you received');
+      return;
     }
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/send-otp`, {
+      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: `+91${formData.phoneNumber}` }),
-      })
+        body: JSON.stringify({ otp_token: otpToken, otp }),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
 
-      const data = await res.json()
       if (res.ok) {
-        alert('OTP sent to your phone')
-        setOtpSent(true)
+        setOtpVerified(true);
+        setProofToken(data.proof_token ?? null); // save proof for signup
+        alert('OTP verified successfully');
       } else {
-        alert(data.message || 'Failed to send OTP')
+        setError(data.message || `OTP verification failed (HTTP ${res.status})`);
+        alert(data.message || 'OTP verification failed');
       }
     } catch (err) {
-      console.error(err)
-      alert('Something went wrong while sending OTP')
+      console.error('verify-otp error:', err);
+      setError('OTP verification failed.');
+      alert('OTP verification failed');
     }
-  }
+  };
 
-const handleVerifyOtp = async () => {
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: `+91${formData.phoneNumber}`, otp }),
-    });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-    const data = await res.json();
-    if (res.ok) {
-      alert('OTP verified successfully');
-      setOtpVerified(true);
-      setOtpToken(data.otp_token); // store token from backend
-    } else {
-      alert(data.message || 'Invalid OTP');
+    if (!otpVerified || !proofToken) {
+      alert('Please verify OTP before signing up');
+      return;
     }
-  } catch (err) {
-    console.error(err);
-    alert('OTP verification failed');
-  }
-};
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    setLoading(true);
+    const phone = toE164(formData.phoneNumber);
 
-  if (!otpVerified || !otpToken) {
-    alert('Please verify OTP before signing up');
-    return;
-  }
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          phoneNumber: phone,      // normalized number
+          proof_token: proofToken, // REQUIRED by your backend
+        }),
+      });
 
-  setLoading(true);
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
 
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...formData,
-        phoneNumber: `+91${formData.phoneNumber}`,
-        otp_token: otpToken, // pass to backend
-      }),
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      localStorage.setItem('token', data.token);
-      navigate('/dashboard');
-    } else {
-      setError(data.message || 'Something went wrong.');
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate('/dashboard');
+      } else {
+        setError(data.message || `Signup failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      console.error('signup error:', err);
+      setError('Something went wrong. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Signup error:', err);
-    alert('Something went wrong. Try again later.');
-  }
-
-  setLoading(false);
-};
-
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -135,7 +165,9 @@ const handleSubmit = async (e: React.FormEvent) => {
             <p className="text-blue-600">Join Barter Adverts today</p>
           </div>
 
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {error && (
+            <p className="text-red-500 text-sm text-center mb-4">{error}</p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* User Type */}
@@ -167,7 +199,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            {/* First & Last Name */}
+            {/* Names */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -228,45 +260,39 @@ const handleSubmit = async (e: React.FormEvent) => {
               />
             </div>
 
-            {/* Phone Number */}
+            {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number <span className="text-red-500">*</span>
               </label>
               <PhoneInput
-                country={'in'}
-                enableSearch={true}
+                country="in"
+                enableSearch
                 value={formData.phoneNumber}
-                onChange={(phone) => setFormData(prev => ({ ...prev, phoneNumber: phone }))}
-                inputProps={{
-                  name: 'phoneNumber',
-                  required: true,
-                }}
+                onChange={(phone) => setFormData((p) => ({ ...p, phoneNumber: phone }))}
+                inputProps={{ name: 'phoneNumber', required: true }}
                 inputStyle={{
                   width: '100%',
                   height: '45px',
-                  paddingLeft: '48px', // Ensures number doesn't overlap flag
+                  paddingLeft: '48px',
                   borderRadius: '8px',
                   border: '1px solid #ccc',
-                  fontSize: '16px'
+                  fontSize: '16px',
                 }}
                 buttonStyle={{
                   borderTopLeftRadius: '8px',
                   borderBottomLeftRadius: '8px',
                   border: '1px solid #ccc',
-                  background: '#fff'
+                  background: '#fff',
                 }}
-                containerStyle={{
-                  width: '100%',
-                  marginBottom: '0.5rem'
-                }}
+                containerStyle={{ width: '100%', marginBottom: '0.5rem' }}
               />
-
-              <p className="text-xs text-blue-600 mt-1">We'll send an OTP to verify your number</p>
+              <p className="text-xs text-blue-600 mt-1">
+                We'll send an OTP to verify your number
+              </p>
             </div>
 
-
-            {/* Company Name */}
+            {/* Company + Desc */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
               <input
@@ -277,8 +303,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
-
-            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Brief Description</label>
               <textarea
@@ -291,7 +315,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               />
             </div>
 
-            {/* OTP Buttons and Input */}
+            {/* OTP actions */}
             {!otpSent ? (
               <button
                 type="button"
@@ -327,7 +351,6 @@ const handleSubmit = async (e: React.FormEvent) => {
               </button>
             )}
 
-            {/* Sign In Link */}
             <div className="text-center">
               <span className="text-gray-600">Already have an account? </span>
               <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
@@ -338,7 +361,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SignUp
+export default SignUp;
