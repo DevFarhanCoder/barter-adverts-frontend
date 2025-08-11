@@ -1,3 +1,4 @@
+// src/hooks/useBarters.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export type Barter = {
@@ -11,55 +12,87 @@ export type Barter = {
   ownerId?: string;
 };
 
-const API = 'https://barter-adverts-backend.onrender.com';
+const API = (import.meta.env.VITE_API_BASE_URL || 'https://barter-adverts-backend.onrender.com').replace(/\/+$/,'');
 
-export function useBarters(userId?: string, token?: string | null) {
+function makeHeaders(): HeadersInit {
+  const token = localStorage.getItem('token'); // Always get token from localStorage
+  const h: HeadersInit = { 'Content-Type': 'application/json' };
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+
+async function http<T = any>(path: string, opts: RequestInit = {}) {
+  const res = await fetch(`${API}${path}`, opts);
+
+  if (res.status === 204) return {} as T;
+
+  const ct = res.headers.get('content-type') || '';
+  // Prefer JSON if the server says it's JSON
+  if (ct.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = (data && (data.message || data.error)) || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data as T;
+  }
+
+  // Fallback: read as text (likely HTML error page)
+  const text = await res.text();
+  if (!res.ok) {
+    // Trim noisy HTML; show first bytes as hint
+    const snippet = text?.slice(0, 200) || res.statusText;
+    throw new Error(snippet);
+  }
+  // If a non‑JSON success ever happens, return an empty object
+  return {} as T;
+}
+
+
+export function useBarters(userId?: string) {
   const qc = useQueryClient();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const headers = makeHeaders();
 
-  // READ (only current user's barters)
+  // READ (current user or specific owner)
   const bartersQ = useQuery<Barter[]>({
     queryKey: ['barters', userId ?? 'me'],
-    queryFn: async () => {
-      const url = userId ? `${API}/api/barters?ownerId=${encodeURIComponent(userId)}` : `${API}/api/barters/me`;
-      const r = await fetch(url, { headers });
-      if (!r.ok) throw new Error('Failed to load barters');
-      return r.json();
-    },
+    queryFn: () =>
+      userId
+        ? http<Barter[]>(`/api/barters?ownerId=${encodeURIComponent(userId)}`, { headers })
+        : http<Barter[]>('/api/barters/me', { headers }),
   });
 
   // CREATE
   const createBarter = useMutation({
-    mutationFn: async (payload: Partial<Barter>) =>
-      fetch(`${API}/api/barters`, { method: 'POST', headers, body: JSON.stringify(payload) }).then(r => {
-        if (!r.ok) throw new Error('Create failed');
-        return r.json();
+    mutationFn: (payload: Partial<Barter>) =>
+      http<Barter>('/api/barters', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['barters', userId ?? 'me'] }),
   });
 
   // UPDATE
   const updateBarter = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Barter> }) =>
-      fetch(`${API}/api/barters/${id}`, { method: 'PUT', headers, body: JSON.stringify(patch) }).then(r => {
-        if (!r.ok) throw new Error('Update failed');
-        return r.json();
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Barter> }) =>
+      http<Barter>(`/api/barters/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(patch),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['barters', userId ?? 'me'] }),
   });
 
   // DELETE
   const deleteBarter = useMutation({
-    mutationFn: async (id: string) =>
-      fetch(`${API}/api/barters/${id}`, { method: 'DELETE', headers }).then(r => {
-        if (!r.ok) throw new Error('Delete failed');
-        return r.json();
+    mutationFn: (id: string) =>
+      http(`/api/barters/${id}`, {
+        method: 'DELETE',
+        headers,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['barters', userId ?? 'me'] }),
   });
 
-  return { bartersQ, createBarter, updateBarter, deleteBarter };
+  return { bartersQ, createBarter, updateBarter, deleteBarter, API_BASE: API };
 }
