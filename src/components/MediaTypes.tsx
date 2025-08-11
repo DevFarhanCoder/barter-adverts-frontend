@@ -26,7 +26,6 @@ const MediaTypes = () => {
   }, [activeTab]);
 
   const listToRender = filteredTypes.slice(0, visibleCount);
-  const canShowMore = visibleCount < filteredTypes.length;
 
   return (
     <section className="py-20 bg-white">
@@ -108,20 +107,6 @@ const MediaTypes = () => {
             </div>
           ))}
         </div>
-
-        {/* Show All CTA (hidden when everything is visible) */}
-        {canShowMore && (
-          <div className="text-center">
-            <button
-              onClick={() =>
-                setVisibleCount(v => Math.min(v + 3, filteredTypes.length))
-              }
-              className="border-2 border-gray-300 text-gray-700 px-8 py-3 rounded-lg font-semibold hover:border-gray-400 hover:bg-gray-50 transition-all"
-            >
-              Show All Media Types →
-            </button>
-          </div>
-        )}
       </div>
     </section>
   );
