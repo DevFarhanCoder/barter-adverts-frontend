@@ -15,11 +15,15 @@ const PricingPlans: React.FC = () => {
   const handlePayment = async (amount: number) => {
     const user = requireLogin();
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/payments/create-order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount }),
+        }
+      );
+
 
       const data = await response.json();
       if (!data.success) throw new Error(data.error);
