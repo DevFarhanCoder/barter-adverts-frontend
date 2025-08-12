@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
-// Robust E.164 normalizer
+/** Normalize to E.164: "+" + digits */
 function toE164(raw: string) {
   const s = (raw || '').trim();
   if (s.startsWith('+')) return s;
@@ -33,9 +33,9 @@ const SignUp: React.FC = () => {
   const [otp, setOtp] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
 
-  // Tokens for your OTP flow
-  const [otpToken, setOtpToken] = useState<string | null>(null);     // from send-otp
-  const [proofToken, setProofToken] = useState<string | null>(null); // from verify-otp
+  // Tokens for OTP flow
+  const [otpToken, setOtpToken] = useState<string | null>(null);
+  const [proofToken, setProofToken] = useState<string | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -55,10 +55,6 @@ const SignUp: React.FC = () => {
       return;
     }
     const phone = toE164(formData.phoneNumber);
-    if (!phone) {
-      alert('Invalid phone number');
-      return;
-    }
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
@@ -133,41 +129,39 @@ const SignUp: React.FC = () => {
 
     setLoading(true);
     const phone = toE164(formData.phoneNumber);
+    const role = formData.userType; // rename for API + storage
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // send "role", not "userType"
-          role: formData.userType,
+          role,                           // ✅ send role (not userType)
           email: formData.email,
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          name: `${formData.firstName} ${formData.lastName}`.trim(), // helpful for some backends
-          phoneNumber: phone,      // normalized number
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          phoneNumber: phone,
           companyName: formData.companyName,
           description: formData.description,
-          proof_token: proofToken, // per your backend’s OTP flow
+          proof_token: proofToken,        // from verify-otp
         }),
       });
 
-      // Be resilient to non-JSON error responses
       const contentType = res.headers.get('content-type') || '';
       const data = contentType.includes('application/json')
         ? await res.json()
         : { message: await res.text() };
 
       if (res.ok) {
-        // Persist in the SAME keys used elsewhere in the app
-        const role = (data.user?.role as string) || formData.userType;
-
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('ba_user', JSON.stringify({ ...(data.user || {}), role }));
+        // ✅ Persist exactly what the rest of the app reads
+        localStorage.setItem('token', (data as any).token);
+        const userObj = { ...(data as any).user, role };
+        localStorage.setItem('ba_user', JSON.stringify(userObj));
         localStorage.setItem('role', role);
 
-        // Notify listeners (Marketplace/useRole etc.)
+        // notify listeners (Marketplace/useRole, etc.)
         window.dispatchEvent(new Event('auth:changed'));
 
         navigate('/marketplace');
