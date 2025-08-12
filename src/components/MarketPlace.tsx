@@ -309,34 +309,36 @@ const Marketplace: React.FC<MarketplaceProps> = ({
   }, [internalSearch, debounced]);
 
   // ---- Filter logic (ownerRole first, fallback to legacy type) ----
-  const filteredListings = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+const filteredListings = useMemo(() => {
+  const q = searchQuery.trim().toLowerCase();
 
-    return listings
-      .filter((l) => l && l.title)
-      .filter((l) => {
-        if (!q) return true;
-        const hay = `${l.title} ${l.location} ${l.description} ${l.seeking}`.toLowerCase();
-        return hay.includes(q);
-      })
-      .filter((l) => {
-        if (selectedFilter === "All") return true;
+  return listings
+    .filter(l => l && l.title)
+    .filter(l => {
+      if (!q) return true;
+      const hay = `${l.title} ${l.location} ${l.description} ${l.seeking}`.toLowerCase();
+      return hay.includes(q);
+    })
+    .filter(l => {
+      if (selectedFilter === "All") return true;
 
-        const role = l.ownerRole;
-        const t = (l.type || "").toLowerCase();
+      const role = l.ownerRole;
+      const t = (l.type || "").toLowerCase();
 
-        if (selectedFilter === "Media Owners") {
-          // include legacy "Available"/"Add Barter" posts
-          return role === "media_owner" || /available|add\s*barter/.test(t);
-        }
-        if (selectedFilter === "Advertisers") {
-          // include legacy "Advertiser Request"/"Add Barter" posts
-          return role === "advertiser" || /advertiser|add\s*barter/.test(t);
-        }
+      if (selectedFilter === "Media Owners") {
+        // ownerRole preferred; fall back to legacy "Available"/"Add Barter"
+        return role === "media_owner" || /available|add\s*barter/.test(t);
+      }
 
-        return true;
-      });
-  }, [listings, searchQuery, selectedFilter]);
+      if (selectedFilter === "Advertisers") {
+        // ownerRole preferred; fall back to legacy "Advertiser Request"
+        return role === "advertiser" || /advertiser/.test(t);
+      }
+
+      return true;
+    });
+}, [listings, searchQuery, selectedFilter]);
+
 
 
   // Debug counts (optional)
