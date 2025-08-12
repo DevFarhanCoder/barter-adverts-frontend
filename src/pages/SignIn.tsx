@@ -23,15 +23,17 @@ const SignIn: React.FC = () => {
       const data = await res.json();
 
       if (res.ok) {
-        // ✅ Save token for authenticated requests
-        localStorage.setItem("token", data.token);
+        localStorage.setItem('token', data.token);
 
-        // Optional: Save user info for dashboard display
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (data.user) {
+          localStorage.setItem('ba_user', JSON.stringify(data.user));
+          if (data.user.role) {
+            localStorage.setItem('role', data.user.role); // "media_owner" or "advertiser"
+          }
+        }
 
-        navigate("/dashboard");
-      } else {
-        setError(data.message || "Invalid credentials");
+        window.dispatchEvent(new Event('auth:changed')); // triggers useRole() update
+        navigate('/marketplace');
       }
     } catch (err) {
       console.error("Login error:", err);
