@@ -64,21 +64,38 @@ function useRole(): UserRole {
   const [role, setRole] = useState<UserRole>(() => readRoleOnce());
 
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (!e.key || ["role", "ba_user", "token"].includes(e.key)) {
-        setRole(readRoleOnce());
+    async function fetchRoleFromServer() {
+      if (role === "advertiser" || role === "media_owner") return;
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const res = await fetch(`${API_BASE}/api/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.role === "advertiser" || data?.role === "media_owner") {
+            localStorage.setItem("role", data.role);
+            setRole(data.role);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch role from server", err);
       }
-    };
+    }
+
+    fetchRoleFromServer();
+
+    const onStorage = () => setRole(readRoleOnce());
     const onAuthChanged = () => setRole(readRoleOnce());
     window.addEventListener("storage", onStorage);
     window.addEventListener("auth:changed", onAuthChanged as any);
-    const t = setTimeout(() => setRole(readRoleOnce()), 0);
+
     return () => {
-      clearTimeout(t);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("auth:changed", onAuthChanged as any);
     };
-  }, []);
+  }, [role]);
 
   return role;
 }
@@ -313,9 +330,10 @@ const Marketplace: React.FC<MarketplaceProps> = ({
           // add "add barter" to legacy fallback
           return role === "media_owner" || /available|add\s*barter/.test(t);
         }
-        if (selectedFilter === "Advertisers") {
-          return role === "advertiser" || /(advertiser|add\s*barter)/i.test(l.type || "");
+        if (selectedFilter === "Media Owners") {
+          return role === "media_owner" || /available|add\s*barter/.test(t);
         }
+
         return true;
       });
   }, [listings, searchQuery, selectedFilter]);
