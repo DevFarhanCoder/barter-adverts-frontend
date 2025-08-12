@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
-/** Normalize to E.164: "+" + digits */
+/** Normalize to E.164. Keep "+" if present, else add it to the digits-only string. */
 function toE164(raw: string) {
   const s = (raw || '').trim();
   if (s.startsWith('+')) return s;
@@ -34,8 +34,8 @@ const SignUp: React.FC = () => {
   const [otpVerified, setOtpVerified] = useState(false);
 
   // Tokens for OTP flow
-  const [otpToken, setOtpToken] = useState<string | null>(null);
-  const [proofToken, setProofToken] = useState<string | null>(null);
+  const [otpToken, setOtpToken] = useState<string | null>(null);     // from send-otp
+  const [proofToken, setProofToken] = useState<string | null>(null); // from verify-otp
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -62,7 +62,6 @@ const SignUp: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
-
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
 
@@ -99,7 +98,6 @@ const SignUp: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otp_token: otpToken, otp }),
       });
-
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
 
@@ -129,14 +127,14 @@ const SignUp: React.FC = () => {
 
     setLoading(true);
     const phone = toE164(formData.phoneNumber);
-    const role = formData.userType; // rename for API + storage
+    const role = formData.userType; // what backend expects
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          role,                           // ✅ send role (not userType)
+          role,                                 // ✅ send role, not userType
           email: formData.email,
           password: formData.password,
           firstName: formData.firstName,
@@ -145,7 +143,7 @@ const SignUp: React.FC = () => {
           phoneNumber: phone,
           companyName: formData.companyName,
           description: formData.description,
-          proof_token: proofToken,        // from verify-otp
+          proof_token: proofToken,              // from verify-otp
         }),
       });
 
@@ -155,13 +153,11 @@ const SignUp: React.FC = () => {
         : { message: await res.text() };
 
       if (res.ok) {
-        // ✅ Persist exactly what the rest of the app reads
+        // Persist exactly what the rest of the app reads
         localStorage.setItem('token', (data as any).token);
         const userObj = { ...(data as any).user, role };
         localStorage.setItem('ba_user', JSON.stringify(userObj));
         localStorage.setItem('role', role);
-
-        // notify listeners (Marketplace/useRole, etc.)
         window.dispatchEvent(new Event('auth:changed'));
 
         navigate('/marketplace');
@@ -305,9 +301,7 @@ const SignUp: React.FC = () => {
                 }}
                 containerStyle={{ width: '100%', marginBottom: '0.5rem' }}
               />
-              <p className="text-xs text-blue-600 mt-1">
-                We'll send an OTP to verify your number
-              </p>
+              <p className="text-xs text-blue-600 mt-1">We'll send an OTP to verify your number</p>
             </div>
 
             {/* Company + Desc */}
