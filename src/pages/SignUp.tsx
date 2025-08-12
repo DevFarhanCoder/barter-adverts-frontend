@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
-/** Normalize to E.164: "+" + digits */
+// Robust E.164 normalizer
 function toE164(raw: string) {
-  const digits = (raw || '').replace(/\D/g, '');
-  return digits.startsWith('+') ? digits : `+${digits}`;
+  const s = (raw || '').trim();
+  if (s.startsWith('+')) return s;
+  const digits = s.replace(/\D/g, '');
+  return digits ? `+${digits}` : '';
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
@@ -16,7 +18,7 @@ const SignUp: React.FC = () => {
 
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-    userType: 'advertiser',
+    userType: 'advertiser' as 'advertiser' | 'media_owner',
     firstName: '',
     lastName: '',
     phoneNumber: '',
@@ -31,9 +33,9 @@ const SignUp: React.FC = () => {
   const [otp, setOtp] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
 
-  // *** NEW: tokens needed for the flow ***
-  const [otpToken, setOtpToken] = useState<string | null>(null);      // from send-otp
-  const [proofToken, setProofToken] = useState<string | null>(null);  // from verify-otp
+  // Tokens for your OTP flow
+  const [otpToken, setOtpToken] = useState<string | null>(null);     // from send-otp
+  const [proofToken, setProofToken] = useState<string | null>(null); // from verify-otp
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -53,6 +55,10 @@ const SignUp: React.FC = () => {
       return;
     }
     const phone = toE164(formData.phoneNumber);
+    if (!phone) {
+      alert('Invalid phone number');
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
@@ -60,11 +66,11 @@ const SignUp: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
+
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
 
       if (res.ok) {
-        // store otp_token for the next step
         setOtpToken(data.otp_token ?? null);
         setOtpSent(true);
         alert('OTP sent to your phone');
@@ -97,12 +103,13 @@ const SignUp: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otp_token: otpToken, otp }),
       });
+
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
 
       if (res.ok) {
         setOtpVerified(true);
-        setProofToken(data.proof_token ?? null); // save proof for signup
+        setProofToken(data.proof_token ?? null);
         alert('OTP verified successfully');
       } else {
         setError(data.message || `OTP verification failed (HTTP ${res.status})`);
@@ -132,21 +139,40 @@ const SignUp: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          // send "role", not "userType"
+          role: formData.userType,
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          name: `${formData.firstName} ${formData.lastName}`.trim(), // helpful for some backends
           phoneNumber: phone,      // normalized number
-          proof_token: proofToken, // REQUIRED by your backend
+          companyName: formData.companyName,
+          description: formData.description,
+          proof_token: proofToken, // per your backend’s OTP flow
         }),
       });
 
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
+      // Be resilient to non-JSON error responses
+      const contentType = res.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await res.json()
+        : { message: await res.text() };
 
       if (res.ok) {
+        // Persist in the SAME keys used elsewhere in the app
+        const role = (data.user?.role as string) || formData.userType;
+
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/dashboard');
+        localStorage.setItem('ba_user', JSON.stringify({ ...(data.user || {}), role }));
+        localStorage.setItem('role', role);
+
+        // Notify listeners (Marketplace/useRole etc.)
+        window.dispatchEvent(new Event('auth:changed'));
+
+        navigate('/marketplace');
       } else {
-        setError(data.message || `Signup failed (HTTP ${res.status})`);
+        setError((data as any).message || `Signup failed (HTTP ${res.status})`);
       }
     } catch (err) {
       console.error('signup error:', err);
@@ -165,9 +191,7 @@ const SignUp: React.FC = () => {
             <p className="text-blue-600">Join Barter Adverts today</p>
           </div>
 
-          {error && (
-            <p className="text-red-500 text-sm text-center mb-4">{error}</p>
-          )}
+          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* User Type */}
