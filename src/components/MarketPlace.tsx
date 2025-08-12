@@ -43,7 +43,7 @@ function decodeJwtRole(): UserRole | undefined {
     );
     const r = json?.role;
     if (r === "advertiser" || r === "media_owner") return r;
-  } catch {}
+  } catch { }
 }
 
 function readRoleOnce(): UserRole {
@@ -53,7 +53,7 @@ function readRoleOnce(): UserRole {
     const user = JSON.parse(localStorage.getItem("ba_user") || "{}");
     const u = user?.role;
     if (u === "advertiser" || u === "media_owner") return u as UserRole;
-  } catch {}
+  } catch { }
   const jwt = decodeJwtRole();
   if (jwt) return jwt;
   return "advertiser";
@@ -130,29 +130,29 @@ const Marketplace: React.FC<MarketplaceProps> = ({
   // Role-aware copy for the form & button
   const formCopy = isMediaOwner
     ? {
-        modalTitle: "Add Inventory",
-        primaryBtn: "Publish Inventory",
-        addBtn: "Add Inventory",
-        titlePh: "e.g., 12x8 ft hoarding near Jogeshwari Signal",
-        locationPh: "e.g., Jogeshwari, Mumbai",
-        descPh: "Size, format, dates available, audience reach…",
-        seekingPh: "e.g., Cross‑promo, banner swap, services",
-        contactPh: "Business email/phone",
-        imagePh: "Public image URL (optional)",
-        pillType: "Available Barters" as const,
-      }
+      modalTitle: "Add Inventory",
+      primaryBtn: "Publish Inventory",
+      addBtn: "Add Inventory",
+      titlePh: "e.g., 12x8 ft hoarding near Jogeshwari Signal",
+      locationPh: "e.g., Jogeshwari, Mumbai",
+      descPh: "Size, format, dates available, audience reach…",
+      seekingPh: "e.g., Cross‑promo, banner swap, services",
+      contactPh: "Business email/phone",
+      imagePh: "Public image URL (optional)",
+      pillType: "Available Barters" as const,
+    }
     : {
-        modalTitle: "Post Campaign Need",
-        primaryBtn: "Publish Need",
-        addBtn: "Post Need",
-        titlePh: "e.g., Launch promo for Instantly",
-        locationPh: "e.g., Mumbai (Western line)",
-        descPh: "Objective, timeline, audience, deliverables…",
-        seekingPh: "e.g., Social shoutouts, services, product barter",
-        contactPh: "Your email/phone",
-        imagePh: "Creative reference URL (optional)",
-        pillType: "Advertiser Request" as const,
-      };
+      modalTitle: "Post Campaign Need",
+      primaryBtn: "Publish Need",
+      addBtn: "Post Need",
+      titlePh: "e.g., Launch promo for Instantly",
+      locationPh: "e.g., Mumbai (Western line)",
+      descPh: "Objective, timeline, audience, deliverables…",
+      seekingPh: "e.g., Social shoutouts, services, product barter",
+      contactPh: "Your email/phone",
+      imagePh: "Creative reference URL (optional)",
+      pillType: "Advertiser Request" as const,
+    };
 
   const [newListing, setNewListing] = useState<Listing>({
     ownerRole: currentRole,
@@ -326,18 +326,18 @@ const Marketplace: React.FC<MarketplaceProps> = ({
         const t = (l.type || "").toLowerCase();
 
         if (selectedFilter === "Media Owners") {
-          // treat legacy "Available Barters" / "Add Barter" as media owner content
+          // include legacy "Available"/"Add Barter" posts
           return role === "media_owner" || /available|add\s*barter/.test(t);
         }
-
         if (selectedFilter === "Advertisers") {
-          // treat legacy "Advertiser Request" as advertiser content
-          return role === "advertiser" || /advertiser\s*request/.test(t);
+          // include legacy "Advertiser Request"/"Add Barter" posts
+          return role === "advertiser" || /advertiser|add\s*barter/.test(t);
         }
 
         return true;
       });
   }, [listings, searchQuery, selectedFilter]);
+
 
   // Debug counts (optional)
   const counts = useMemo(() => {
@@ -394,11 +394,10 @@ const Marketplace: React.FC<MarketplaceProps> = ({
                 <button
                   key={filter}
                   onClick={() => setSelectedFilter(filter)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedFilter === filter
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedFilter === filter
                       ? "bg-purple-600 text-white"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {filter}
                 </button>
@@ -453,10 +452,10 @@ const Marketplace: React.FC<MarketplaceProps> = ({
                     listing.ownerRole === "media_owner"
                       ? { txt: "Media Owner", cls: "bg-green-100 text-green-800" }
                       : listing.ownerRole === "advertiser"
-                      ? { txt: "Advertiser", cls: "bg-blue-100 text-blue-800" }
-                      : (listing.type || "").toLowerCase().includes("available")
-                      ? { txt: "Media Owner", cls: "bg-green-100 text-green-800" }
-                      : { txt: listing.type || "Listing", cls: "bg-gray-100 text-gray-800" };
+                        ? { txt: "Advertiser", cls: "bg-blue-100 text-blue-800" }
+                        : (listing.type || "").toLowerCase().includes("available")
+                          ? { txt: "Media Owner", cls: "bg-green-100 text-green-800" }
+                          : { txt: listing.type || "Listing", cls: "bg-gray-100 text-gray-800" };
 
                   return (
                     <div
