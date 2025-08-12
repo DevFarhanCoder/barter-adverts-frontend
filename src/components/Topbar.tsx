@@ -1,26 +1,58 @@
+// src/components/Topbar.tsx
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, Settings, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import {
+  ChevronDown,
+  LogOut,
+  Settings,
+  LayoutDashboard,
+  ArrowLeft,
+  ArrowLeftRight,
+} from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
-function getUser() {
-  useEffect(() => {
-  const close = () => setOpen(false);
-  window.addEventListener('close-profile-menu', close);
-  return () => window.removeEventListener('close-profile-menu', close);
-}, []);
+type Role = 'media_owner' | 'advertiser';
+type StoredUser = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  userType?: Role;
+};
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
+function readStoredUser(): StoredUser | null {
   try {
-    const raw = localStorage.getItem('user');
-    return raw ? JSON.parse(raw) : null;
+    const rawBA = localStorage.getItem('ba_user');
+    if (rawBA) return JSON.parse(rawBA);
+    const rawLegacy = localStorage.getItem('user'); // legacy key
+    return rawLegacy ? JSON.parse(rawLegacy) : null;
   } catch {
     return null;
   }
 }
 
+function useStoredUser() {
+  const [user, setUser] = useState<StoredUser | null>(() => readStoredUser());
+
+  useEffect(() => {
+    const handle = () => setUser(readStoredUser());
+    window.addEventListener('auth:changed', handle);
+    window.addEventListener('storage', handle);
+    return () => {
+      window.removeEventListener('auth:changed', handle);
+      window.removeEventListener('storage', handle);
+    };
+  }, []);
+
+  return { user, setUser };
+}
+
 const Topbar: React.FC = () => {
   const navigate = useNavigate();
-  const user = getUser();
+  const { user, setUser } = useStoredUser();
+
   const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const popRef = useRef<HTMLDivElement>(null);
 
   // close on click outside
@@ -34,10 +66,64 @@ const Topbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
+  // allow external close
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener('close-profile-menu', close);
+    return () => window.removeEventListener('close-profile-menu', close);
+  }, []);
+
+  const role: Role = user?.userType === 'media_owner' ? 'media_owner' : 'advertiser';
+  const nextRole: Role = role === 'advertiser' ? 'media_owner' : 'advertiser';
+  const nextRoleLabel = nextRole === 'media_owner' ? 'Media Owner' : 'Advertiser';
+
+  const initials =
+    user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
+
+  const fullName = user?.firstName
+    ? `${user.firstName} ${user?.lastName ?? ''}`.trim()
+    : 'User';
+
   const signOut = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('ba_user');
     localStorage.removeItem('user');
-    navigate('/');
+    localStorage.removeItem('role');
+    window.dispatchEvent(new Event('auth:changed'));
+    navigate('/login');
+  };
+
+  const switchRole = async () => {
+    try {
+      setSwitching(true);
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+
+      const res = await fetch(`${API_BASE}/api/auth/switch-role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: nextRole }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Failed to switch role');
+
+      localStorage.setItem('ba_user', JSON.stringify(data.user));
+      localStorage.setItem('role', data.user.userType);
+      setUser(data.user);
+      window.dispatchEvent(new Event('auth:changed'));
+
+      setOpen(false);
+      navigate(0); // hard refresh current route so UI reacts immediately
+    } catch (e: any) {
+      console.error('switchRole error:', e);
+      alert(e?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSwitching(false);
+    }
   };
 
   return (
@@ -57,29 +143,38 @@ const Topbar: React.FC = () => {
           <button
             onClick={() => setOpen(!open)}
             className="flex items-center gap-3 rounded-full border px-3 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+            aria-haspopup="true"
+            aria-expanded={open}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
-              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white"
+              aria-label={`User avatar: ${fullName}`}
+            >
+              {initials}
             </div>
             <div className="hidden sm:block">
-              <div className="font-medium text-gray-900 dark:text-gray-100">
-                {user?.firstName ? `${user.firstName} ${user?.lastName ?? ''}`.trim() : 'User'}
-              </div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{fullName}</div>
               <div className="text-xs text-gray-500">{user?.email ?? '—'}</div>
             </div>
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </button>
 
-          {/* Menu (simple, no fancy transitions) */}
           {open && (
-            <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div
+              className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900 z-50"
+              data-topbar="role-switch-menu"
+            >
               <div className="px-3 py-2">
                 <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {user?.firstName ? `${user.firstName} ${user?.lastName ?? ''}`.trim() : 'User'}
+                  {fullName}
                 </div>
                 <div className="truncate text-xs text-gray-500">{user?.email ?? '—'}</div>
+                <div className="mt-1 text-[11px] uppercase tracking-wide text-purple-600">
+                  Current role: {role.replace('_', ' ')}
+                </div>
               </div>
               <div className="border-t dark:border-gray-700" />
+
               <Link
                 to="/dashboard"
                 onClick={() => setOpen(false)}
@@ -88,6 +183,7 @@ const Topbar: React.FC = () => {
                 <LayoutDashboard className="h-4 w-4" />
                 My Dashboard
               </Link>
+
               <Link
                 to="/settings"
                 onClick={() => setOpen(false)}
@@ -96,12 +192,28 @@ const Topbar: React.FC = () => {
                 <Settings className="h-4 w-4" />
                 Settings
               </Link>
+
+              <button
+                disabled={switching}
+                onClick={switchRole}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                title={switching ? 'Switching…' : ''}
+              >
+                {switching ? (
+                  <span className="h-4 w-4 animate-spin border-2 border-blue-500 border-t-transparent rounded-full" />
+                ) : (
+                  <ArrowLeftRight className="h-4 w-4" />
+                )}
+                {switching ? 'Switching…' : `Switch to ${nextRoleLabel}`}
+              </button>
+
+              <div className="border-t dark:border-gray-700" />
               <button
                 onClick={signOut}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
               >
                 <LogOut className="h-4 w-4" />
-                Sign out
+                Sign Out
               </button>
             </div>
           )}
@@ -112,7 +224,3 @@ const Topbar: React.FC = () => {
 };
 
 export default Topbar;
-function setOpen(arg0: boolean) {
-  throw new Error('Function not implemented.');
-}
-

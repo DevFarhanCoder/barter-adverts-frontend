@@ -4,18 +4,23 @@ import { Save, Moon, Sun, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Settings: React.FC = () => {
-  const { user, setUser } = useAuth(); // pull from AuthContext
-  const storedUser = (() => {
-    try {
-      return user || JSON.parse(localStorage.getItem('user') || '{}');
-    } catch {
-      return {};
-    }
-  })();
+  const { user, setUser } = useAuth();
 
-  const [name, setName] = useState(storedUser?.name || '');
-  const [email, setEmail] = useState(storedUser?.email || '');
-  const [role, setRole] = useState(storedUser?.role || 'advertiser'); // ✅ ensure role is in state
+  // Always read the SAME key your app uses: "ba_user"
+  const storedUser = (() => {
+    if (user) return user;
+    try {
+      return JSON.parse(localStorage.getItem('ba_user') || 'null');
+    } catch {
+      return null;
+    }
+  })() as any;
+
+  const [name, setName] = useState<string>(storedUser?.name || '');
+  const [email, setEmail] = useState<string>(storedUser?.email || '');
+  const [role, setRole] = useState<'advertiser' | 'media_owner'>(
+    storedUser?.userType || 'advertiser'
+  );
   const [password, setPassword] = useState('');
   const [notifTrade, setNotifTrade] = useState(true);
   const [notifMsgs, setNotifMsgs] = useState(true);
@@ -24,7 +29,7 @@ const Settings: React.FC = () => {
       (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'
   );
 
-  // Handle theme switching
+  // Theme switching
   useEffect(() => {
     const root = document.documentElement;
     if (dark) {
@@ -36,24 +41,31 @@ const Settings: React.FC = () => {
     }
   }, [dark]);
 
-  // Save profile
+  // Save profile locally (adjust to call backend if you add an endpoint)
   const saveProfile = async () => {
-    const updatedUser = { ...storedUser, name, email, role };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    setUser(updatedUser); // ✅ update AuthContext
+    const updated = {
+      ...(storedUser || {}),
+      name,
+      email,
+      userType: role, // keep canonical field name consistent
+    };
+    localStorage.setItem('ba_user', JSON.stringify(updated));
+    // mirror for legacy code that reads "role"
+    localStorage.setItem('role', role);
+    setUser(updated);
     alert('Profile saved');
   };
 
-  // Change password
+  // Dummy password change (wire to backend later)
   const changePassword = async () => {
     if (!password.trim()) return alert('Enter a new password');
-    // TODO: call backend change-password endpoint
     setPassword('');
     alert('Password updated');
   };
 
   return (
     <div className="space-y-8">
+      <button onClick={() => history.back()} className="text-sm text-gray-600 mb-2">← Back to Home</button>
       <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h1>
 
       {/* Appearance */}
@@ -61,8 +73,7 @@ const Settings: React.FC = () => {
         <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Appearance</h2>
         <button
           onClick={() => setDark((d) => !d)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700
-                     bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-100"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-100"
         >
           {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           {dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -88,12 +99,11 @@ const Settings: React.FC = () => {
           />
         </div>
 
-        {/* Role Selection */}
         <div className="mt-4">
           <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Role</label>
           <select
             value={role}
-            onChange={(e) => setRole(e.target.value)}
+            onChange={(e) => setRole(e.target.value as 'advertiser' | 'media_owner')}
             className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
           >
             <option value="advertiser">Advertiser</option>

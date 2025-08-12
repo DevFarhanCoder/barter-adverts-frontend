@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
+// src/pages/SignUp.tsx
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
+
+import { auth } from '../firebase';
+import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  onAuthStateChanged,
+  type ConfirmationResult,
+  type Auth,
+} from 'firebase/auth';
 
 /** Normalize to E.164. Keep "+" if present, else add it to the digits-only string. */
 function toE164(raw: string) {
@@ -11,11 +21,44 @@ function toE164(raw: string) {
   return digits ? `+${digits}` : '';
 }
 
+// Backend base URL (e.g. VITE_API_BASE_URL=http://localhost:5000)
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
+// Flip to `true` if you want to see the reCAPTCHA widget while debugging.
+const DEBUG_VISIBLE_RECAPTCHA = false;
+
+/** Create a single, stable container under <body> for reCAPTCHA. */
+function ensureRecaptchaContainer(): HTMLElement {
+  let el = document.getElementById('ba-recaptcha-root');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ba-recaptcha-root';
+    // keep it out of layout; Firebase still uses it just fine
+    el.style.position = 'fixed';
+    el.style.left = '-9999px';
+    el.style.bottom = '0';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+/** Create or reuse a singleton RecaptchaVerifier */
+function ensureVerifier(a: Auth): RecaptchaVerifier {
+  const w = window as any;
+  if (w._baRecaptchaVerifier) return w._baRecaptchaVerifier as RecaptchaVerifier;
+
+  const container = ensureRecaptchaContainer(); // HTMLElement
+  const v = new RecaptchaVerifier(a, container, {
+    size: DEBUG_VISIBLE_RECAPTCHA ? 'normal' : 'invisible',
+  });
+  w._baRecaptchaVerifier = v;
+  return v;
+}
 
 const SignUp: React.FC = () => {
   const navigate = useNavigate();
 
+  // form & UI
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     userType: 'advertiser' as 'advertiser' | 'media_owner',
@@ -27,15 +70,29 @@ const SignUp: React.FC = () => {
     email: '',
     password: '',
   });
-
   const [loading, setLoading] = useState(false);
+
+  // OTP flow state
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
 
-  // Tokens for OTP flow
-  const [otpToken, setOtpToken] = useState<string | null>(null);     // from send-otp
-  const [proofToken, setProofToken] = useState<string | null>(null); // from verify-otp
+  // Firebase auth state
+  const [firebaseIdToken, setFirebaseIdToken] = useState<string | null>(null);
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+
+  // Keep Firebase auth token fresh
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        const tok = await u.getIdToken(true);
+        setFirebaseIdToken(tok);
+        setVerifiedPhone(u.phoneNumber || null);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -57,34 +114,33 @@ const SignUp: React.FC = () => {
     const phone = toE164(formData.phoneNumber);
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
-
-      if (res.ok) {
-        setOtpToken(data.otp_token ?? null);
-        setOtpSent(true);
-        alert('OTP sent to your phone');
-      } else {
-        setError(data.message || `Failed to send OTP (HTTP ${res.status})`);
-        alert(data.message || 'Failed to send OTP');
+      const v = ensureVerifier(auth);
+      await v.render(); // make sure it is mounted before use
+      const confirmation = await signInWithPhoneNumber(auth, phone, v);
+      confirmationRef.current = confirmation;
+      setOtpSent(true);
+      alert('OTP sent to your phone');
+    } catch (err: any) {
+      console.error('firebase send otp error:', err);
+      const code = err?.code || '';
+      let msg = err?.message || 'Failed to send OTP';
+      if (code === 'auth/too-many-requests') {
+        msg = 'Too many attempts. Please wait a minute and try again.';
+      } else if (code === 'auth/invalid-phone-number') {
+        msg = 'Invalid phone number format.';
       }
-    } catch (err) {
-      console.error('send-otp error:', err);
-      setError('Something went wrong while sending OTP.');
-      alert('Something went wrong while sending OTP');
+      setError(msg);
+      alert(msg);
+      // if the verifier broke, clear it so next attempt recreates cleanly
+      try { (window as any)._baRecaptchaVerifier?.clear?.(); } catch {}
+      (window as any)._baRecaptchaVerifier = null;
     }
   };
 
   const handleVerifyOtp = async () => {
     setError('');
-    if (!otpToken) {
-      setError('Missing OTP token. Please send OTP again.');
-      alert('Missing OTP token. Please send OTP again.');
+    if (!confirmationRef.current) {
+      alert('Please send OTP first');
       return;
     }
     if (!otp) {
@@ -93,26 +149,20 @@ const SignUp: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp_token: otpToken, otp }),
-      });
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
-
-      if (res.ok) {
-        setOtpVerified(true);
-        setProofToken(data.proof_token ?? null);
-        alert('OTP verified successfully');
-      } else {
-        setError(data.message || `OTP verification failed (HTTP ${res.status})`);
-        alert(data.message || 'OTP verification failed');
-      }
-    } catch (err) {
-      console.error('verify-otp error:', err);
-      setError('OTP verification failed.');
-      alert('OTP verification failed');
+      const result = await confirmationRef.current.confirm(otp);
+      const u = result.user;
+      const idToken = await u.getIdToken(true);
+      setFirebaseIdToken(idToken);
+      setVerifiedPhone(u.phoneNumber || null);
+      setOtpVerified(true);
+      alert('OTP verified successfully');
+    } catch (err: any) {
+      console.error('firebase verify error:', err);
+      const code = err?.code || '';
+      let msg = err?.message || 'OTP verification failed';
+      if (code === 'auth/invalid-verification-code') msg = 'Invalid OTP. Please try again.';
+      setError(msg);
+      alert(msg);
     }
   };
 
@@ -120,30 +170,32 @@ const SignUp: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (!otpVerified || !proofToken) {
+    if (!otpVerified || !firebaseIdToken || !verifiedPhone) {
       alert('Please verify OTP before signing up');
       return;
     }
 
     setLoading(true);
     const phone = toE164(formData.phoneNumber);
-    const role = formData.userType; // what backend expects
+    const userType = formData.userType;
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${firebaseIdToken}`,
+        },
         body: JSON.stringify({
-          role,                                 // ✅ send role, not userType
+          userType,
           email: formData.email,
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
           name: `${formData.firstName} ${formData.lastName}`.trim(),
-          phoneNumber: phone,
+          phoneNumber: phone, // must match Firebase verified phone
           companyName: formData.companyName,
           description: formData.description,
-          proof_token: proofToken,              // from verify-otp
         }),
       });
 
@@ -153,13 +205,10 @@ const SignUp: React.FC = () => {
         : { message: await res.text() };
 
       if (res.ok) {
-        // Persist exactly what the rest of the app reads
         localStorage.setItem('token', (data as any).token);
-        const userObj = { ...(data as any).user, role };
-        localStorage.setItem('ba_user', JSON.stringify(userObj));
-        localStorage.setItem('role', role);
+        localStorage.setItem('ba_user', JSON.stringify((data as any).user));
+        localStorage.setItem('role', (data as any).user?.userType || userType);
         window.dispatchEvent(new Event('auth:changed'));
-
         navigate('/marketplace');
       } else {
         setError((data as any).message || `Signup failed (HTTP ${res.status})`);
@@ -304,29 +353,6 @@ const SignUp: React.FC = () => {
               <p className="text-xs text-blue-600 mt-1">We'll send an OTP to verify your number</p>
             </div>
 
-            {/* Company + Desc */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-              <input
-                type="text"
-                name="companyName"
-                value={formData.companyName}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Brief Description</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
-                placeholder="Tell us about your business and what you're looking to trade..."
-              />
-            </div>
-
             {/* OTP actions */}
             {!otpSent ? (
               <button
@@ -345,13 +371,22 @@ const SignUp: React.FC = () => {
                   placeholder="Enter OTP"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
-                <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  className="w-full bg-green-600 text-white py-3 rounded-lg mt-3 hover:bg-green-700"
-                >
-                  Verify OTP
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg mt-3 hover:bg-green-700"
+                  >
+                    Verify OTP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg mt-3 hover:bg-gray-300"
+                  >
+                    Resend
+                  </button>
+                </div>
               </>
             ) : (
               <button
@@ -363,12 +398,8 @@ const SignUp: React.FC = () => {
               </button>
             )}
 
-            <div className="text-center">
-              <span className="text-gray-600">Already have an account? </span>
-              <a href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
-                Log In
-              </a>
-            </div>
+            {/* NOTE: We no longer render a recaptcha <div> inside this tree.
+                It is mounted once under <body> by ensureRecaptchaContainer(). */}
           </form>
         </div>
       </div>
