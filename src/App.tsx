@@ -15,21 +15,21 @@ import PrivateRoute from "./components/PrivateRoute";
 import SignIn from "./pages/SignIn";
 import DashboardHome from "./pages/DashboardHome";
 
-// Nested dashboard pages
-import Listings from "./pages/Listings";
-import Messages from "./pages/Messages";
-import Settings from "./pages/Settings";
+// NEW: Admin imports
+import AdminLayout from "./admin/AdminLayout";
+import AdminOverview from "./admin/pages/AdminOverview";
+import AdminUsers from "./admin/pages/AdminUsers";
+import AdminListings from "./admin/pages/AdminListings";
 
 // React Query
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// ---------- types (align with backend) ----------
 type UserRole = "advertiser" | "media_owner";
 
 export interface Listing {
-  _id?: string;              // backend uses _id
-  ownerRole?: UserRole;      // optional for legacy data
-  type?: string;             // legacy pill text (e.g., "Available Barters")
+  _id?: string;
+  ownerRole?: UserRole;
+  type?: string;
   title: string;
   location: string;
   rating: number;
@@ -40,21 +40,21 @@ export interface Listing {
   image?: string;
 }
 
-// Create a single QueryClient instance at module scope
 const queryClient = new QueryClient();
-
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
-// ---------- AppContent ----------
 function AppContent() {
   const [listings, setListings] = useState<Marketplace.Listing[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<"All" | "Media Owners" | "Advertisers">("All");
+  const [selectedFilter, setSelectedFilter] =
+    useState<"All" | "Media Owners" | "Advertisers">("All");
 
   const location = useLocation();
 
-  // Hide header/footer for dashboard and login (add others if needed)
-  const hideLayout = ["/dashboard", "/login"].some((path) => location.pathname.startsWith(path));
+  // UPDATED: also hide layout on /admin
+  const hideLayout = ["/dashboard", "/login", "/admin"].some((path) =>
+    location.pathname.startsWith(path)
+  );
 
   useEffect(() => {
     let alive = true;
@@ -99,6 +99,7 @@ function AppContent() {
           }
         />
 
+        {/* Existing user dashboard */}
         <Route
           path="/dashboard"
           element={
@@ -112,6 +113,20 @@ function AppContent() {
           <Route path="messages" element={<Messages />} />
           <Route path="settings" element={<Settings />} />
         </Route>
+
+        {/* NEW: admin routes */}
+        <Route
+          path="/admin"
+          element={
+            // optionally protect with a different guard if needed
+            // <AdminRoute><AdminLayout /></AdminRoute>
+            <AdminLayout />
+          }
+        >
+          <Route index element={<AdminOverview />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="listings" element={<AdminListings />} />
+        </Route>
       </Routes>
 
       {!hideLayout && <Footer />}
@@ -119,7 +134,6 @@ function AppContent() {
   );
 }
 
-// ---------- App (root) ----------
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
