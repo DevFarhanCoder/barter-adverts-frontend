@@ -14,6 +14,7 @@ import UserDashboard from "./pages/UserDashboard";
 import PrivateRoute from "./components/PrivateRoute";
 import SignIn from "./pages/SignIn";
 import DashboardHome from "./pages/DashboardHome";
+import Listings from "./pages/Listings";
 
 // NEW: Admin imports
 import AdminLayout from "./admin/AdminLayout";
@@ -23,6 +24,8 @@ import AdminListings from "./admin/pages/AdminListings";
 
 // React Query
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
 
 type UserRole = "advertiser" | "media_owner";
 
