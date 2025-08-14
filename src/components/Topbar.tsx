@@ -149,20 +149,25 @@ export default function Topbar() {
   }
 
   function goSettings() {
-    // New standalone settings page:
-    navigate("/settings", { replace: false });
+    // Standalone settings page you created for Topbar
+    navigate("/settings");
     setOpen(false);
   }
 
   function logout() {
+    // Clear all auth/session data
     localStorage.removeItem("token");
     localStorage.removeItem("ba_user");
     localStorage.removeItem("user");
     localStorage.removeItem("role");
-    window.dispatchEvent(new Event("auth:changed"));
-    navigate("/login", { replace: true });
-  }
 
+    // Notify listeners and close the menu
+    window.dispatchEvent(new Event("auth:changed"));
+    setOpen(false);
+
+    // Redirect to home (NOT login)
+    navigate("/", { replace: true });
+  }
 
   // Show switch for everyone except admins
   const canSwitch = !isAdmin;
