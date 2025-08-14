@@ -1,7 +1,7 @@
 // src/App.tsx
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import Header from "./components/Header";
+import Topbar from "./components/Topbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Contact from "./pages/Contact";
@@ -15,8 +15,9 @@ import PrivateRoute from "./components/PrivateRoute";
 import SignIn from "./pages/SignIn";
 import DashboardHome from "./pages/DashboardHome";
 import Listings from "./pages/Listings";
+import AccountSettings from "./pages/AccountSettings";
 
-// NEW: Admin imports
+// Admin
 import AdminLayout from "./admin/AdminLayout";
 import AdminOverview from "./admin/pages/AdminOverview";
 import AdminUsers from "./admin/pages/AdminUsers";
@@ -47,18 +48,19 @@ const queryClient = new QueryClient();
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 function AppContent() {
-  const [listings, setListings] = useState<Marketplace.Listing[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] =
     useState<"All" | "Media Owners" | "Advertisers">("All");
 
   const location = useLocation();
 
-  // UPDATED: also hide layout on /admin
+  // Hide layout on dashboard/login/admin pages
   const hideLayout = ["/dashboard", "/login", "/admin"].some((path) =>
     location.pathname.startsWith(path)
   );
 
+  // Pull initial listings (public)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -75,9 +77,22 @@ function AppContent() {
     };
   }, []);
 
+  // Re-render layout when auth/userType changes (so menu text updates immediately)
+  const [, setBump] = useState(0);
+  useEffect(() => {
+    const bump = () => setBump((n) => n + 1);
+    window.addEventListener("auth:changed", bump);
+    window.addEventListener("storage", bump);
+    return () => {
+      window.removeEventListener("auth:changed", bump);
+      window.removeEventListener("storage", bump);
+    };
+  }, []);
+
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      {!hideLayout && <Header />}
+      {!hideLayout && <Topbar />}   {/* ⬅️ render Topbar instead of Header */}
 
       <Routes>
         <Route path="/" element={<Home />} />
@@ -102,7 +117,18 @@ function AppContent() {
           }
         />
 
-        {/* Existing user dashboard */}
+        {/* Settings page */}
+        <Route
+          path="/settings"
+          element={
+            // If you want only logged-in users to access:
+            <PrivateRoute>
+              <AccountSettings />
+            </PrivateRoute>
+          }
+        />
+
+        {/* User dashboard */}
         <Route
           path="/dashboard"
           element={
@@ -117,15 +143,8 @@ function AppContent() {
           <Route path="settings" element={<Settings />} />
         </Route>
 
-        {/* NEW: admin routes */}
-        <Route
-          path="/admin"
-          element={
-            // optionally protect with a different guard if needed
-            // <AdminRoute><AdminLayout /></AdminRoute>
-            <AdminLayout />
-          }
-        >
+        {/* Admin routes */}
+        <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="listings" element={<AdminListings />} />
@@ -147,7 +166,7 @@ export default function App() {
   );
 }
 
-// Allow Marketplace to import the Listing type from here if needed
+// Optional: keep this if some files import Marketplace.Listing
 export namespace Marketplace {
-  export type Listing = Listing;
+  export type Listing = import("./App").Listing;
 }

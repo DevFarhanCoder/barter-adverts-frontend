@@ -22,7 +22,7 @@ const MediaTypes = () => {
 
   // Always start at 3 visible when tab changes
   useEffect(() => {
-    setVisibleCount(6);
+    setVisibleCount(9);
   }, [activeTab]);
 
   const listToRender = filteredTypes.slice(0, visibleCount);

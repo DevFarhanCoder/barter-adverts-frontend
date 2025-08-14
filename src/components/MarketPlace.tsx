@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Search, MapPin, Star, Shield, User, X, Plus } from "lucide-react";
+// src/components/MarketPlace.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { MapPin, Plus, Search, Shield, Star, User, X } from "lucide-react";
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000";
 
-type UserRole = "advertiser" | "media_owner";
+type BizRole = "advertiser" | "media_owner";
 
 interface Listing {
   _id?: string;
-  ownerRole?: UserRole;  // preferred field saved by backend
-  type?: string;         // legacy UI pill text ("Available Barters" | "Advertiser Request" | "Add Barter")
+  ownerRole?: BizRole;
+  type?: string; // legacy UI label
   title: string;
   location: string;
   rating: number;
@@ -22,85 +25,53 @@ interface Listing {
 
 interface MarketplaceProps {
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery: (v: string) => void;
   selectedFilter: string;
-  setSelectedFilter: (filter: string) => void;
+  setSelectedFilter: (v: string) => void;
   listings: Listing[];
   setListings: React.Dispatch<React.SetStateAction<Listing[]>>;
 }
 
 const FILTERS = ["All", "Media Owners", "Advertisers"] as const;
 
-// ---------- Robust role detection ----------
-function decodeJwtRole(): UserRole | undefined {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-    const [, payload] = token.split(".");
-    if (!payload) return;
-    const json = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
-    );
-    const r = json?.role;
-    if (r === "advertiser" || r === "media_owner") return r;
-  } catch { }
+// ---------- role helpers ----------
+function coerceBizRole(v: any): BizRole | null {
+  if (!v) return null;
+  const s = String(v).toLowerCase();
+  if (s === "advertiser" || s === "media_owner") return s;
+  if (s === "media_owners") return "media_owner";
+  if (s === "advertisers") return "advertiser";
+  return null;
 }
 
-function readRoleOnce(): UserRole {
-  const r = localStorage.getItem("role");
-  if (r === "advertiser" || r === "media_owner") return r as UserRole;
+function readBizRole(): BizRole {
   try {
-    const user = JSON.parse(localStorage.getItem("ba_user") || "{}");
-    const u = user?.role;
-    if (u === "advertiser" || u === "media_owner") return u as UserRole;
-  } catch { }
-  const jwt = decodeJwtRole();
-  if (jwt) return jwt;
-  return "advertiser";
+    const u =
+      JSON.parse(localStorage.getItem("ba_user") || "null") ||
+      JSON.parse(localStorage.getItem("user") || "null");
+    const ut = coerceBizRole(u?.userType);
+    if (ut) return ut;
+  } catch {}
+  // fallback: infer from role if someone stored it wrong
+  const r = coerceBizRole(localStorage.getItem("role"));
+  return r || "advertiser";
 }
 
-/** Keeps role in state and reacts to login/logout across tabs. */
-function useRole(): UserRole {
-  const [role, setRole] = useState<UserRole>(() => readRoleOnce());
-
+function useBizRole() {
+  const [role, setRole] = useState<BizRole>(() => readBizRole());
   useEffect(() => {
-    async function fetchRoleFromServer() {
-      if (role === "advertiser" || role === "media_owner") return;
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const res = await fetch(`${API_BASE}/api/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.role === "advertiser" || data?.role === "media_owner") {
-            localStorage.setItem("role", data.role);
-            setRole(data.role);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch role from server", err);
-      }
-    }
-
-    fetchRoleFromServer();
-
-    const onStorage = () => setRole(readRoleOnce());
-    const onAuthChanged = () => setRole(readRoleOnce());
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("auth:changed", onAuthChanged as any);
-
+    const sync = () => setRole(readBizRole());
+    window.addEventListener("auth:changed", sync);
+    window.addEventListener("storage", sync);
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("auth:changed", onAuthChanged as any);
+      window.removeEventListener("auth:changed", sync);
+      window.removeEventListener("storage", sync);
     };
-  }, [role]);
-
+  }, []);
   return role;
 }
 
-// ---------- Utils ----------
+// ---------- utils ----------
 const debounce = (fn: (...args: any[]) => void, ms = 300) => {
   let t: any;
   return (...args: any[]) => {
@@ -108,8 +79,6 @@ const debounce = (fn: (...args: any[]) => void, ms = 300) => {
     t = setTimeout(() => fn(...args), ms);
   };
 };
-
-const SHOW_DEBUG = false; // flip to true to see counts + detected role
 
 const Marketplace: React.FC<MarketplaceProps> = ({
   searchQuery,
@@ -119,43 +88,56 @@ const Marketplace: React.FC<MarketplaceProps> = ({
   listings,
   setListings,
 }) => {
+  const bizRole = useBizRole(); // "advertiser" | "media_owner"
+  const isMO = bizRole === "media_owner";
+
+  // `?view=` preselects filter after a switch
+  const location = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const v = params.get("view");
+    if (v === "media_owner") setSelectedFilter("Media Owners");
+    else if (v === "advertiser") setSelectedFilter("Advertisers");
+    else setSelectedFilter("All");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  // Copy for modal & button
+  const copy = isMO
+    ? {
+        addBtn: "Add Inventory",
+        modalTitle: "Add Inventory",
+        primary: "Publish Inventory",
+        titlePh: "e.g., 12x8 ft hoarding near Jogeshwari Signal",
+        locationPh: "e.g., Jogeshwari, Mumbai",
+        descPh: "Size, format, dates available, audience reach…",
+        seekingPh: "e.g., Cross-promo, banner swap, services",
+        contactPh: "Business email/phone",
+        imagePh: "Public image URL (optional)",
+        pillType: "Available Barters",
+      }
+    : {
+        addBtn: "Post Need",
+        modalTitle: "Post Campaign Need",
+        primary: "Publish Need",
+        titlePh: "e.g., Launch promo for Instantly",
+        locationPh: "e.g., Mumbai (Western line)",
+        descPh: "Objective, timeline, audience, deliverables…",
+        seekingPh: "e.g., Social shoutouts, services, product barter",
+        contactPh: "Your email/phone",
+        imagePh: "Creative reference URL (optional)",
+        pillType: "Advertiser Request",
+      };
+
+  // UI state
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const currentRole = useRole();
-  const isMediaOwner = currentRole === "media_owner";
-
-  // Role-aware copy for the form & button
-  const formCopy = isMediaOwner
-    ? {
-      modalTitle: "Add Inventory",
-      primaryBtn: "Publish Inventory",
-      addBtn: "Add Inventory",
-      titlePh: "e.g., 12x8 ft hoarding near Jogeshwari Signal",
-      locationPh: "e.g., Jogeshwari, Mumbai",
-      descPh: "Size, format, dates available, audience reach…",
-      seekingPh: "e.g., Cross‑promo, banner swap, services",
-      contactPh: "Business email/phone",
-      imagePh: "Public image URL (optional)",
-      pillType: "Available Barters" as const,
-    }
-    : {
-      modalTitle: "Post Campaign Need",
-      primaryBtn: "Publish Need",
-      addBtn: "Post Need",
-      titlePh: "e.g., Launch promo for Instantly",
-      locationPh: "e.g., Mumbai (Western line)",
-      descPh: "Objective, timeline, audience, deliverables…",
-      seekingPh: "e.g., Social shoutouts, services, product barter",
-      contactPh: "Your email/phone",
-      imagePh: "Creative reference URL (optional)",
-      pillType: "Advertiser Request" as const,
-    };
-
+  // Listing form
   const [newListing, setNewListing] = useState<Listing>({
-    ownerRole: currentRole,
+    ownerRole: bizRole,
     title: "",
     location: "",
     rating: 4.5,
@@ -164,27 +146,21 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     contact: "",
     verified: true,
     image: "",
-    type: formCopy.pillType,
+    type: copy.pillType,
   });
 
+  // keep form aligned to current role when opening / role changes
   useEffect(() => {
-    setSelectedFilter("All");
+    if (!showModal) return;
+    setNewListing((nl) => ({
+      ...nl,
+      ownerRole: bizRole,
+      type: copy.pillType,
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bizRole, showModal]);
 
-  // Keep role/type fresh when modal opens or role changes
-  useEffect(() => {
-    if (showModal) {
-      setNewListing((nl) => ({
-        ...nl,
-        ownerRole: currentRole,
-        type: formCopy.pillType,
-      }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showModal, currentRole]);
-
-  // ---- Fetch listings (public) ----
+  // Fetch listings (public)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -194,24 +170,19 @@ const Marketplace: React.FC<MarketplaceProps> = ({
         const res = await fetch(`${API_BASE}/api/barters`);
         const ct = res.headers.get("content-type") || "";
         const raw = ct.includes("application/json") ? await res.json() : await res.text();
-        if (!res.ok)
-          throw new Error(
-            typeof raw === "string" ? raw : (raw as any)?.message || `API ${res.status}`
-          );
-
+        if (!res.ok) throw new Error(typeof raw === "string" ? raw : (raw as any)?.message || `API ${res.status}`);
         const arr = Array.isArray(raw) ? raw : [];
         const valid = arr.filter(
-          (item: any) =>
-            item &&
-            typeof item.title === "string" &&
-            typeof item.location === "string" &&
-            typeof item.description === "string" &&
-            typeof item.contact === "string"
+          (i: any) =>
+            i &&
+            typeof i.title === "string" &&
+            typeof i.location === "string" &&
+            typeof i.description === "string" &&
+            typeof i.contact === "string"
         );
         if (alive) setListings(valid);
       } catch (e: any) {
         if (alive) setLoadError(e?.message || "Failed to fetch listings");
-        console.error("Failed to fetch listings", e);
       } finally {
         if (alive) setLoading(false);
       }
@@ -221,7 +192,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     };
   }, [setListings]);
 
-  // ---- Add Listing (auth required) ----
+  // Add listing (auth)
   const handleAddListing = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -229,11 +200,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
       return;
     }
 
-    if (
-      !newListing.title?.trim() ||
-      !newListing.location?.trim() ||
-      !newListing.description?.trim()
-    ) {
+    if (!newListing.title.trim() || !newListing.location.trim() || !newListing.description.trim()) {
       alert("Please fill Title, Location and Details.");
       return;
     }
@@ -242,8 +209,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     try {
       const payload: Listing = {
         ...newListing,
-        ownerRole: currentRole, // enforce role
-        type: formCopy.pillType, // keep legacy pill for UI
+        ownerRole: bizRole,
+        type: copy.pillType,
       };
 
       const res = await fetch(`${API_BASE}/api/barters`, {
@@ -255,9 +222,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
         body: JSON.stringify(payload),
       });
 
-      const ct = res.headers.get("content-type") || "";
-      const data = ct.includes("application/json") ? await res.json() : await res.text();
-
+      const data = await res.json();
       if (res.status === 401) {
         alert("Session expired. Please log in again.");
         localStorage.removeItem("token");
@@ -266,16 +231,14 @@ const Marketplace: React.FC<MarketplaceProps> = ({
         return;
       }
       if (!res.ok) {
-        console.error("Error saving listing", data);
-        alert((data as any)?.message || "Failed to add listing");
+        alert(data?.message || "Failed to add listing");
         return;
       }
 
       setListings((prev) => [data as Listing, ...prev]);
-
       setShowModal(false);
       setNewListing({
-        ownerRole: currentRole,
+        ownerRole: bizRole,
         title: "",
         location: "",
         rating: 4.5,
@@ -284,77 +247,50 @@ const Marketplace: React.FC<MarketplaceProps> = ({
         contact: "",
         verified: true,
         image: "",
-        type: formCopy.pillType,
+        type: copy.pillType,
       });
-
-      setSelectedFilter(isMediaOwner ? "Advertisers" : "Media Owners");
+      // After posting, auto-focus opposite side to encourage matches
+      setSelectedFilter(isMO ? "Advertisers" : "Media Owners");
     } catch (err) {
-      console.error("Error posting listing", err);
       alert("Network error while adding listing");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ---- Search (debounced) ----
+  // search debounce
   const [internalSearch, setInternalSearch] = useState(searchQuery);
   const debounced = useRef(
-    debounce((v: string) => {
-      setSearchQuery(v);
-    }, 300)
+    debounce((v: string) => setSearchQuery(v), 300)
   ).current;
-
   useEffect(() => {
     debounced(internalSearch);
   }, [internalSearch, debounced]);
 
-  // ---- Filter logic (ownerRole first, fallback to legacy type) ----
-const filteredListings = useMemo(() => {
-  const q = searchQuery.trim().toLowerCase();
+  // Filters
+  const filteredListings = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return listings
+      .filter((l) => l && l.title)
+      .filter((l) => {
+        if (!q) return true;
+        const hay = `${l.title} ${l.location} ${l.description} ${l.seeking}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .filter((l) => {
+        if (selectedFilter === "All") return true;
+        const role = l.ownerRole;
+        const t = (l.type || "").toLowerCase();
 
-  return listings
-    .filter(l => l && l.title)
-    .filter(l => {
-      if (!q) return true;
-      const hay = `${l.title} ${l.location} ${l.description} ${l.seeking}`.toLowerCase();
-      return hay.includes(q);
-    })
-    .filter(l => {
-      if (selectedFilter === "All") return true;
-
-      const role = l.ownerRole;
-      const t = (l.type || "").toLowerCase();
-
-      if (selectedFilter === "Media Owners") {
-        // ownerRole preferred; fall back to legacy "Available"/"Add Barter"
-        return role === "media_owner" || /available|add\s*barter/.test(t);
-      }
-
-      if (selectedFilter === "Advertisers") {
-        // ownerRole preferred; fall back to legacy "Advertiser Request"
-        return role === "advertiser" || /advertiser/.test(t);
-      }
-
-      return true;
-    });
-}, [listings, searchQuery, selectedFilter]);
-
-
-
-  // Debug counts (optional)
-  const counts = useMemo(() => {
-    const mo =
-      listings.filter(
-        (l) => l.ownerRole === "media_owner" || /available/i.test(l.type || "")
-      ).length;
-    const ad =
-      listings.filter(
-        (l) =>
-          l.ownerRole === "advertiser" ||
-          /advertiser|add\s*barter/i.test(l.type || "")
-      ).length;
-    return { total: listings.length, mo, ad };
-  }, [listings]);
+        if (selectedFilter === "Media Owners") {
+          return role === "media_owner" || /available|add\s*barter/.test(t);
+        }
+        if (selectedFilter === "Advertisers") {
+          return role === "advertiser" || /advertiser/.test(t);
+        }
+        return true;
+      });
+  }, [listings, searchQuery, selectedFilter]);
 
   return (
     <section id="marketplace" className="py-12">
@@ -373,7 +309,7 @@ const filteredListings = useMemo(() => {
             className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors self-start"
           >
             <Plus className="w-4 h-4" />
-            {isMediaOwner ? "Add Inventory" : "Post Need"}
+            {copy.addBtn}
           </button>
         </div>
 
@@ -392,28 +328,22 @@ const filteredListings = useMemo(() => {
             </div>
 
             <div className="flex gap-2">
-              {FILTERS.map((filter) => (
+              {FILTERS.map((f) => (
                 <button
-                  key={filter}
-                  onClick={() => setSelectedFilter(filter)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedFilter === filter
+                  key={f}
+                  onClick={() => setSelectedFilter(f)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedFilter === f
                       ? "bg-purple-600 text-white"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                    }`}
+                  }`}
                 >
-                  {filter}
+                  {f}
                 </button>
               ))}
             </div>
           </div>
         </div>
-
-        {SHOW_DEBUG && (
-          <div className="text-xs text-gray-500 mb-4">
-            You are: <b>{currentRole}</b> • Total: {counts.total} • Media Owners: {counts.mo} •{" "}
-            Advertisers: {counts.ad}
-          </div>
-        )}
 
         {/* Loading / Error */}
         {loading && (
@@ -454,33 +384,23 @@ const filteredListings = useMemo(() => {
                     listing.ownerRole === "media_owner"
                       ? { txt: "Media Owner", cls: "bg-green-100 text-green-800" }
                       : listing.ownerRole === "advertiser"
-                        ? { txt: "Advertiser", cls: "bg-blue-100 text-blue-800" }
-                        : (listing.type || "").toLowerCase().includes("available")
-                          ? { txt: "Media Owner", cls: "bg-green-100 text-green-800" }
-                          : { txt: listing.type || "Listing", cls: "bg-gray-100 text-gray-800" };
+                      ? { txt: "Advertiser", cls: "bg-blue-100 text-blue-800" }
+                      : (listing.type || "").toLowerCase().includes("available")
+                      ? { txt: "Media Owner", cls: "bg-green-100 text-green-800" }
+                      : { txt: listing.type || "Listing", cls: "bg-gray-100 text-gray-800" };
 
                   return (
-                    <div
-                      key={listing._id || idx}
-                      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden"
-                    >
+                    <div key={listing._id || idx} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
                       <div className="relative">
                         <div className="h-48 bg-gray-200 flex items-center justify-center">
                           {listing.image ? (
-                            <img
-                              src={listing.image}
-                              alt={listing.title}
-                              className="h-48 w-full object-cover"
-                              loading="lazy"
-                            />
+                            <img src={listing.image} alt={listing.title} className="h-48 w-full object-cover" loading="lazy" />
                           ) : (
                             <div className="text-gray-400 text-6xl">📷</div>
                           )}
                         </div>
                         <div className="absolute top-4 left-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${pill.cls}`}>
-                            {pill.txt}
-                          </span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${pill.cls}`}>{pill.txt}</span>
                         </div>
                         {listing.verified && (
                           <div className="absolute top-4 right-4">
@@ -492,22 +412,16 @@ const filteredListings = useMemo(() => {
                         )}
                       </div>
                       <div className="p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {listing.title}
-                        </h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{listing.title}</h3>
                         <div className="flex items-center gap-2 mb-3">
                           <MapPin className="w-4 h-4 text-gray-400" />
                           <span className="text-sm text-gray-600">{listing.location}</span>
                           <div className="flex items-center gap-1 ml-auto">
                             <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm font-medium">
-                              {listing.rating?.toFixed?.(1) ?? listing.rating}
-                            </span>
+                            <span className="text-sm font-medium">{listing.rating?.toFixed?.(1) ?? listing.rating}</span>
                           </div>
                         </div>
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                          {listing.description}
-                        </p>
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">{listing.description}</p>
                         {listing.seeking && (
                           <div className="mb-4">
                             <p className="text-xs font-medium text-gray-500 mb-1">Seeking:</p>
@@ -517,9 +431,7 @@ const filteredListings = useMemo(() => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-600 break-all">
-                              {listing.contact}
-                            </span>
+                            <span className="text-sm text-gray-600 break-all">{listing.contact}</span>
                           </div>
                           <button className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
                             Contact
@@ -534,67 +446,60 @@ const filteredListings = useMemo(() => {
           </>
         )}
 
-        {/* Role-aware Modal */}
+        {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg w-full max-w-xl shadow-xl relative">
-              <button
-                onClick={() => setShowModal(false)}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-              >
+              <button onClick={() => setShowModal(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700">
                 <X className="w-5 h-5" />
               </button>
 
-              <h3 className="text-xl font-bold mb-2">{formCopy.modalTitle}</h3>
+              <h3 className="text-xl font-bold mb-2">{copy.modalTitle}</h3>
               <div className="text-sm text-gray-600 mb-3">
-                You’re posting as{" "}
-                <span className="font-medium">{isMediaOwner ? "Media Owner" : "Advertiser"}</span>.
+                You’re posting as <span className="font-medium">{isMO ? "Media Owner" : "Advertiser"}</span>.
               </div>
 
               <div className="grid gap-2">
                 <input
                   className="w-full border rounded p-2"
-                  placeholder={formCopy.titlePh}
+                  placeholder={copy.titlePh}
                   value={newListing.title}
                   onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
                 />
                 <input
                   className="w-full border rounded p-2"
-                  placeholder={formCopy.locationPh}
+                  placeholder={copy.locationPh}
                   value={newListing.location}
                   onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
                 />
                 <textarea
                   className="w-full border rounded p-2"
-                  placeholder={formCopy.descPh}
+                  placeholder={copy.descPh}
                   value={newListing.description}
                   onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
                 />
                 <input
                   className="w-full border rounded p-2"
-                  placeholder={formCopy.seekingPh}
+                  placeholder={copy.seekingPh}
                   value={newListing.seeking}
                   onChange={(e) => setNewListing({ ...newListing, seeking: e.target.value })}
                 />
                 <input
                   className="w-full border rounded p-2"
-                  placeholder={formCopy.contactPh}
+                  placeholder={copy.contactPh}
                   value={newListing.contact}
                   onChange={(e) => setNewListing({ ...newListing, contact: e.target.value })}
                 />
                 <input
                   className="w-full border rounded p-2"
-                  placeholder={formCopy.imagePh}
+                  placeholder={copy.imagePh}
                   value={newListing.image || ""}
                   onChange={(e) => setNewListing({ ...newListing, image: e.target.value })}
                 />
               </div>
 
               <div className="mt-4 flex items-center justify-end gap-2">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg border hover:bg-gray-50"
-                >
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg border hover:bg-gray-50">
                   Cancel
                 </button>
                 <button
@@ -602,7 +507,7 @@ const filteredListings = useMemo(() => {
                   disabled={submitting}
                   className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-60"
                 >
-                  {submitting ? "Saving…" : formCopy.primaryBtn}
+                  {submitting ? "Saving…" : copy.primary}
                 </button>
               </div>
             </div>

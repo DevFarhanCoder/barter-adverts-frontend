@@ -15,7 +15,7 @@ export default function SignIn() {
 
   // If already logged in, bounce to dashboard/admin
   useEffect(() => {
-    const role = localStorage.getItem("role");
+    const role = (localStorage.getItem("role") || "").toLowerCase();
     const token = localStorage.getItem("token");
     if (token && role) {
       navigate(role === "admin" ? "/admin" : "/dashboard", { replace: true });
@@ -59,12 +59,19 @@ export default function SignIn() {
         return;
       }
 
+      // ✅ Persist everything consistently
       localStorage.setItem("token", token);
       localStorage.setItem("ba_user", JSON.stringify(user));
-      const role = (user.role as string) ?? "user";
+      localStorage.setItem("user", JSON.stringify(user)); // optional: if other parts read "user"
+
+      // ✅ Normalize role (defaults to "user")
+      const role = String(user.role || "user").toLowerCase();
       localStorage.setItem("role", role);
 
+      // Notify listeners (ProfileMenu, etc.)
       window.dispatchEvent(new Event("auth:changed"));
+
+      // ✅ Route by role
       navigate(role === "admin" ? "/admin" : "/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -169,10 +176,7 @@ export default function SignIn() {
           >
             Forgot password?
           </a>
-          <a
-            className="text-gray-600 hover:underline dark:text-neutral-300"
-            href="/signup"
-          >
+          <a className="text-gray-600 hover:underline dark:text-neutral-300" href="/signup">
             Create an account
           </a>
         </div>

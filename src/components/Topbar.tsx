@@ -1,226 +1,283 @@
 // src/components/Topbar.tsx
-import { Link, useNavigate } from 'react-router-dom';
-import {
-  ChevronDown,
-  LogOut,
-  Settings,
-  LayoutDashboard,
-  ArrowLeft,
-  ArrowLeftRight,
-} from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-type Role = 'media_owner' | 'advertiser';
-type StoredUser = {
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000";
+
+type AuthRole = "admin" | "user" | string;
+type BizRole = "advertiser" | "media_owner";
+
+type AppUser = {
   firstName?: string;
   lastName?: string;
   email?: string;
-  userType?: Role;
+  role?: AuthRole;     // auth role: "admin" | "user"
+  userType?: BizRole;  // business role used in marketplace
+  [k: string]: any;
 };
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+function coerceBizRole(v: any): BizRole | null {
+  if (!v) return null;
+  const s = String(v).toLowerCase().trim();
+  if (s === "advertiser" || s === "media_owner") return s;
+  if (s === "media_owners" || s === "mediaowners") return "media_owner";
+  if (s === "advertisers") return "advertiser";
+  return null;
+}
 
-function readStoredUser(): StoredUser | null {
+function readLocal(): { user: AppUser | null; authRole: AuthRole | null; bizRole: BizRole } {
+  let u: AppUser | null = null;
   try {
-    const rawBA = localStorage.getItem('ba_user');
-    if (rawBA) return JSON.parse(rawBA);
-    const rawLegacy = localStorage.getItem('user'); // legacy key
-    return rawLegacy ? JSON.parse(rawLegacy) : null;
+    u =
+      JSON.parse(localStorage.getItem("ba_user") || "null") ||
+      JSON.parse(localStorage.getItem("user") || "null");
   } catch {
-    return null;
+    u = null;
   }
+
+  const authRole = (localStorage.getItem("role") || u?.role || "")
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  const userTypeFromUser = coerceBizRole(u?.userType);
+  const userTypeFromRole = coerceBizRole(authRole);
+
+  // Default to advertiser for non-admin users if missing
+  const bizRole: BizRole = userTypeFromUser || userTypeFromRole || "advertiser";
+
+  return { user: u, authRole: authRole || null, bizRole };
 }
 
-function useStoredUser() {
-  const [user, setUser] = useState<StoredUser | null>(() => readStoredUser());
-
-  useEffect(() => {
-    const handle = () => setUser(readStoredUser());
-    window.addEventListener('auth:changed', handle);
-    window.addEventListener('storage', handle);
-    return () => {
-      window.removeEventListener('auth:changed', handle);
-      window.removeEventListener('storage', handle);
-    };
-  }, []);
-
-  return { user, setUser };
-}
-
-const Topbar: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, setUser } = useStoredUser();
-
+export default function Topbar() {
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [authRole, setAuthRole] = useState<AuthRole | null>(null);
+  const [bizRole, setBizRole] = useState<BizRole>("advertiser");
   const [switching, setSwitching] = useState(false);
-  const popRef = useRef<HTMLDivElement>(null);
 
-  // close on click outside
+  const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
   useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (popRef.current && !popRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    const sync = () => {
+      const { user, authRole, bizRole } = readLocal();
+      setUser(user);
+      setAuthRole(authRole);
+      setBizRole(bizRole);
     };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    sync();
+
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+
+    window.addEventListener("auth:changed", sync);
+    window.addEventListener("storage", sync);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      window.removeEventListener("auth:changed", sync);
+      window.removeEventListener("storage", sync);
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onEsc);
+    };
   }, []);
 
-  // allow external close
-  useEffect(() => {
-    const close = () => setOpen(false);
-    window.addEventListener('close-profile-menu', close);
-    return () => window.removeEventListener('close-profile-menu', close);
-  }, []);
+  const isAdmin = (authRole || "").toLowerCase() === "admin";
 
-  const role: Role = user?.userType === 'media_owner' ? 'media_owner' : 'advertiser';
-  const nextRole: Role = role === 'advertiser' ? 'media_owner' : 'advertiser';
-  const nextRoleLabel = nextRole === 'media_owner' ? 'Media Owner' : 'Advertiser';
+  const displayName = (() => {
+    if (isAdmin) return "Admin";
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+    return name || "User";
+  })();
 
-  const initials =
-    user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
+  const initials = (() => {
+    const [a = "U", b = ""] = displayName.split(" ");
+    return (a[0] || "U").toUpperCase() + (b[0] || "").toUpperCase();
+  })();
 
-  const fullName = user?.firstName
-    ? `${user.firstName} ${user?.lastName ?? ''}`.trim()
-    : 'User';
-
-  const signOut = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('ba_user');
-    localStorage.removeItem('user');
-    localStorage.removeItem('role');
-    window.dispatchEvent(new Event('auth:changed'));
-    navigate('/login');
-  };
-
-  const switchRole = async () => {
+  async function switchProfileType() {
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      const next: BizRole = bizRole === "advertiser" ? "media_owner" : "advertiser";
       setSwitching(true);
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Not authenticated');
 
       const res = await fetch(`${API_BASE}/api/auth/switch-role`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ role: nextRole }),
+        body: JSON.stringify({ role: next }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || 'Failed to switch role');
+      if (!res.ok) {
+        console.error("switch-role failed", data);
+        alert(data?.message || "Failed to switch profile type.");
+        return;
+      }
 
-      localStorage.setItem('ba_user', JSON.stringify(data.user));
-      localStorage.setItem('role', data.user.userType);
-      setUser(data.user);
-      window.dispatchEvent(new Event('auth:changed'));
+      if (data?.user) {
+        localStorage.setItem("ba_user", JSON.stringify(data.user));
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+      window.dispatchEvent(new Event("auth:changed"));
 
+      navigate(`/marketplace?view=${next}`, { replace: true });
       setOpen(false);
-      navigate(0); // hard refresh current route so UI reacts immediately
-    } catch (e: any) {
-      console.error('switchRole error:', e);
-      alert(e?.message || 'Something went wrong. Please try again.');
+    } catch (err) {
+      console.error("switchProfileType error:", err);
+      alert("Network error. Please try again.");
     } finally {
       setSwitching(false);
     }
-  };
+  }
+
+  function goDashboard() {
+    navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
+    setOpen(false);
+  }
+
+  function goSettings() {
+    // New standalone settings page:
+    navigate("/settings", { replace: false });
+    setOpen(false);
+  }
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("ba_user");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    window.dispatchEvent(new Event("auth:changed"));
+    navigate("/login", { replace: true });
+  }
+
+
+  // Show switch for everyone except admins
+  const canSwitch = !isAdmin;
+  const switchLabel =
+    bizRole === "advertiser" ? "Become Media Owner" : "Become an Advertiser";
 
   return (
-    <div className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:bg-gray-900/80">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        {/* Back to Home */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Home
-        </Link>
+    <header className="w-full bg-white border-b border-gray-200">
+      <div className="max-w-7xl mx-auto h-14 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        {/* Left: Brand + Nav */}
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+              BA
+            </div>
+            <div className="leading-tight">
+              <div className="font-semibold text-gray-900">Barter Adverts</div>
+              <div className="text-[11px] text-gray-500 -mt-0.5">
+                Media Marketplace
+              </div>
+            </div>
+          </Link>
+          <nav className="hidden md:flex items-center gap-6 ml-6 text-sm">
+            <Link to="/marketplace" className="text-gray-700 hover:text-gray-900">
+              Marketplace
+            </Link>
+            <Link to="/how-it-works" className="text-gray-700 hover:text-gray-900">
+              How It Works
+            </Link>
+            <Link to="/pricing" className="text-gray-700 hover:text-gray-900">
+              Pricing
+            </Link>
+            <Link to="/about" className="text-gray-700 hover:text-gray-900">
+              About
+            </Link>
+          </nav>
+        </div>
 
-        {/* Profile */}
-        <div className="relative" ref={popRef}>
+        {/* Right: Profile Dropdown */}
+        <div className="relative" ref={ref}>
           <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-3 rounded-full border px-3 py-1.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-            aria-haspopup="true"
-            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            className="h-9 px-2 rounded-full bg-white border border-gray-300 flex items-center gap-2 hover:shadow-sm"
+            title="Account"
           >
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white"
-              aria-label={`User avatar: ${fullName}`}
-            >
+            <div className="h-7 w-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
               {initials}
             </div>
-            <div className="hidden sm:block">
-              <div className="font-medium text-gray-900 dark:text-gray-100">{fullName}</div>
-              <div className="text-xs text-gray-500">{user?.email ?? '—'}</div>
+            <div className="hidden sm:block text-left">
+              <div className="text-sm leading-4 font-medium text-gray-900">
+                {displayName}
+              </div>
+              <div className="text-[11px] text-gray-500">
+                {(isAdmin ? "admin" : (authRole || "user"))}
+                {bizRole ? ` • ${bizRole.replace("_", " ")}` : ""}
+              </div>
             </div>
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <svg viewBox="0 0 20 20" className="w-4 h-4 text-gray-500" aria-hidden="true">
+              <path
+                d="M5.25 7.5l4.5 4.5 4.5-4.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
 
           {open && (
-            <div
-              className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900 z-50"
-              data-topbar="role-switch-menu"
-            >
-              <div className="px-3 py-2">
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {fullName}
+            <div className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden z-50">
+              {/* Header */}
+              <div className="px-3 py-3 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
+                  {initials}
                 </div>
-                <div className="truncate text-xs text-gray-500">{user?.email ?? '—'}</div>
-                <div className="mt-1 text-[11px] uppercase tracking-wide text-purple-600">
-                  Current role: {role.replace('_', ' ')}
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{displayName}</div>
+                  <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+                  <div className="text-[11px] text-gray-400">
+                    {(isAdmin ? "admin" : (authRole || "user"))}
+                    {bizRole ? ` • ${bizRole.replace("_", " ")}` : ""}
+                  </div>
                 </div>
               </div>
-              <div className="border-t dark:border-gray-700" />
 
-              <Link
-                to="/dashboard"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <LayoutDashboard className="h-4 w-4" />
+              <div className="border-t" />
+
+              <button onClick={goDashboard} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
                 My Dashboard
-              </Link>
-
-              <Link
-                to="/settings"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-
-              <button
-                disabled={switching}
-                onClick={switchRole}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-                title={switching ? 'Switching…' : ''}
-              >
-                {switching ? (
-                  <span className="h-4 w-4 animate-spin border-2 border-blue-500 border-t-transparent rounded-full" />
-                ) : (
-                  <ArrowLeftRight className="h-4 w-4" />
-                )}
-                {switching ? 'Switching…' : `Switch to ${nextRoleLabel}`}
               </button>
 
-              <div className="border-t dark:border-gray-700" />
-              <button
-                onClick={signOut}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-              >
-                <LogOut className="h-4 w-4" />
+              <button onClick={goSettings} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                Settings
+              </button>
+
+              {canSwitch && (
+                <button
+                  onClick={switchProfileType}
+                  disabled={switching}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {switching ? "Switching…" : switchLabel}
+                </button>
+              )}
+
+              <div className="border-t" />
+
+              <button onClick={logout} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
                 Sign Out
               </button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
-};
-
-export default Topbar;
+}
