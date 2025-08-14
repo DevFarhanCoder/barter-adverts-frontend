@@ -27,7 +27,7 @@ function coerceBizRole(v: any): BizRole | null {
   return null;
 }
 
-function readLocal(): { user: AppUser | null; authRole: AuthRole | null; bizRole: BizRole } {
+function readLocal() {
   let u: AppUser | null = null;
   try {
     u =
@@ -37,6 +37,7 @@ function readLocal(): { user: AppUser | null; authRole: AuthRole | null; bizRole
     u = null;
   }
 
+  const token = localStorage.getItem("token") || "";
   const authRole = (localStorage.getItem("role") || u?.role || "")
     .toString()
     .toLowerCase()
@@ -45,10 +46,9 @@ function readLocal(): { user: AppUser | null; authRole: AuthRole | null; bizRole
   const userTypeFromUser = coerceBizRole(u?.userType);
   const userTypeFromRole = coerceBizRole(authRole);
 
-  // Default to advertiser for non-admin users if missing
   const bizRole: BizRole = userTypeFromUser || userTypeFromRole || "advertiser";
 
-  return { user: u, authRole: authRole || null, bizRole };
+  return { user: u, authRole: authRole || null, bizRole, token };
 }
 
 export default function Topbar() {
@@ -56,6 +56,7 @@ export default function Topbar() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [authRole, setAuthRole] = useState<AuthRole | null>(null);
   const [bizRole, setBizRole] = useState<BizRole>("advertiser");
+  const [token, setToken] = useState<string>("");
   const [switching, setSwitching] = useState(false);
 
   const ref = useRef<HTMLDivElement>(null);
@@ -63,10 +64,11 @@ export default function Topbar() {
 
   useEffect(() => {
     const sync = () => {
-      const { user, authRole, bizRole } = readLocal();
+      const { user, authRole, bizRole, token } = readLocal();
       setUser(user);
       setAuthRole(authRole);
       setBizRole(bizRole);
+      setToken(token);
     };
     sync();
 
@@ -88,23 +90,25 @@ export default function Topbar() {
     };
   }, []);
 
+  const isAuthed = Boolean(token);
   const isAdmin = (authRole || "").toLowerCase() === "admin";
 
   const displayName = (() => {
+    if (!isAuthed) return ""; // logged out: no label
     if (isAdmin) return "Admin";
     const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
     return name || "User";
   })();
 
   const initials = (() => {
+    if (!isAuthed) return "U";
     const [a = "U", b = ""] = displayName.split(" ");
     return (a[0] || "U").toUpperCase() + (b[0] || "").toUpperCase();
   })();
 
   async function switchProfileType() {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
+      if (!isAuthed) {
         navigate("/login", { replace: true });
         return;
       }
@@ -149,28 +153,21 @@ export default function Topbar() {
   }
 
   function goSettings() {
-    // Standalone settings page you created for Topbar
     navigate("/settings");
     setOpen(false);
   }
 
   function logout() {
-    // Clear all auth/session data
     localStorage.removeItem("token");
     localStorage.removeItem("ba_user");
     localStorage.removeItem("user");
     localStorage.removeItem("role");
-
-    // Notify listeners and close the menu
     window.dispatchEvent(new Event("auth:changed"));
     setOpen(false);
-
-    // Redirect to home (NOT login)
     navigate("/", { replace: true });
   }
 
-  // Show switch for everyone except admins
-  const canSwitch = !isAdmin;
+  const canSwitch = isAuthed && !isAdmin;
   const switchLabel =
     bizRole === "advertiser" ? "Become Media Owner" : "Become an Advertiser";
 
@@ -206,82 +203,100 @@ export default function Topbar() {
           </nav>
         </div>
 
-        {/* Right: Profile Dropdown */}
-        <div className="relative" ref={ref}>
-          <button
-            onClick={() => setOpen((o) => !o)}
-            className="h-9 px-2 rounded-full bg-white border border-gray-300 flex items-center gap-2 hover:shadow-sm"
-            title="Account"
-          >
-            <div className="h-7 w-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
-              {initials}
-            </div>
-            <div className="hidden sm:block text-left">
-              <div className="text-sm leading-4 font-medium text-gray-900">
-                {displayName}
+        {/* Right: If NOT authed, show Sign in / Create account */}
+        {!isAuthed ? (
+          <div className="flex items-center gap-3">
+            <Link
+              to="/login"
+              className="text-sm text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded-md border border-gray-300"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/signup"
+              className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700"
+            >
+              Create account
+            </Link>
+          </div>
+        ) : (
+          // Logged in: Profile Dropdown
+          <div className="relative" ref={ref}>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="h-9 px-2 rounded-full bg-white border border-gray-300 flex items-center gap-2 hover:shadow-sm"
+              title="Account"
+            >
+              <div className="h-7 w-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
+                {initials}
               </div>
-              <div className="text-[11px] text-gray-500">
-                {(isAdmin ? "admin" : (authRole || "user"))}
-                {bizRole ? ` • ${bizRole.replace("_", " ")}` : ""}
-              </div>
-            </div>
-            <svg viewBox="0 0 20 20" className="w-4 h-4 text-gray-500" aria-hidden="true">
-              <path
-                d="M5.25 7.5l4.5 4.5 4.5-4.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-
-          {open && (
-            <div className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden z-50">
-              {/* Header */}
-              <div className="px-3 py-3 flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
-                  {initials}
+              <div className="hidden sm:block text-left">
+                <div className="text-sm leading-4 font-medium text-gray-900">
+                  {displayName}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{displayName}</div>
-                  <div className="text-xs text-gray-500 truncate">{user?.email}</div>
-                  <div className="text-[11px] text-gray-400">
-                    {(isAdmin ? "admin" : (authRole || "user"))}
-                    {bizRole ? ` • ${bizRole.replace("_", " ")}` : ""}
+                <div className="text-[11px] text-gray-500">
+                  {(isAdmin ? "admin" : (authRole || "user"))}
+                  {bizRole ? ` • ${bizRole.replace("_", " ")}` : ""}
+                </div>
+              </div>
+              <svg viewBox="0 0 20 20" className="w-4 h-4 text-gray-500" aria-hidden="true">
+                <path
+                  d="M5.25 7.5l4.5 4.5 4.5-4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            {open && (
+              <div className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden z-50">
+                {/* Header */}
+                <div className="px-3 py-3 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{displayName}</div>
+                    <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+                    <div className="text-[11px] text-gray-400">
+                      {(isAdmin ? "admin" : (authRole || "user"))}
+                      {bizRole ? ` • ${bizRole.replace("_", " ")}` : ""}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="border-t" />
+                <div className="border-t" />
 
-              <button onClick={goDashboard} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
-                My Dashboard
-              </button>
-
-              <button onClick={goSettings} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
-                Settings
-              </button>
-
-              {canSwitch && (
-                <button
-                  onClick={switchProfileType}
-                  disabled={switching}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
-                >
-                  {switching ? "Switching…" : switchLabel}
+                <button onClick={goDashboard} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                  My Dashboard
                 </button>
-              )}
 
-              <div className="border-t" />
+                <button onClick={goSettings} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                  Settings
+                </button>
 
-              <button onClick={logout} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
+                {canSwitch && (
+                  <button
+                    onClick={switchProfileType}
+                    disabled={switching}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    {switching ? "Switching…" : switchLabel}
+                  </button>
+                )}
+
+                <div className="border-t" />
+
+                <button onClick={logout} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );
