@@ -5,15 +5,16 @@ import { useNavigate } from "react-router-dom";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
+/** Email validator */
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+}
+
 /** Normalize to E.164. Keep "+" if present, else add it to the digits-only string. */
 function normalizePhone(raw: string, defaultCountry: "IN" | "US" = "IN") {
-  // remove spaces, dashes, parentheses
   const s = String(raw || "").replace(/[^\d+]/g, "");
-
-  // already E.164?
   if (s.startsWith("+")) return s;
 
-  // strip leading zeros
   const digits = s.replace(/^0+/, "");
 
   if (defaultCountry === "IN") {
@@ -26,12 +27,13 @@ function normalizePhone(raw: string, defaultCountry: "IN" | "US" = "IN") {
   // Generic: if it already includes country code (>=11 digits), just add +
   if (/^\d{11,15}$/.test(digits)) return `+${digits}`;
 
-  // Fallback – let the caller handle the error message
   return "";
 }
 
-// Backend base URL (e.g. VITE_API_BASE_URL=http://localhost:5000)
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+/** API base resolver (supports Vite proxy when empty) */
+const RAW_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+const API_BASE = RAW_BASE ? RAW_BASE.replace(/\/+$/, "") : "";
+const api = (path: string) => (API_BASE ? `${API_BASE}${path}` : path);
 
 const SignUp: React.FC = () => {
   const navigate = useNavigate();
@@ -42,22 +44,22 @@ const SignUp: React.FC = () => {
     userType: "advertiser" as "advertiser" | "media_owner",
     firstName: "",
     lastName: "",
-    phoneNumber: "",
     companyName: "",
     description: "",
     email: "",
     password: "",
+    phoneNumber: "", // raw value from PhoneInput (digits, typically no "+")
   });
   const [loading, setLoading] = useState(false);
 
-  // Twilio OTP flow state
+  // Email OTP flow state
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
 
   // Tokens from backend
-  const [otpToken, setOtpToken] = useState<string | null>(null); // from /send-otp
-  const [proofToken, setProofToken] = useState<string | null>(null); // from /verify-otp
+  const [otpToken, setOtpToken] = useState<string | null>(null);
+  const [proofToken, setProofToken] = useState<string | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -72,31 +74,41 @@ const SignUp: React.FC = () => {
 
   const handleSendOtp = async () => {
     setError("");
-    if (!formData.phoneNumber) {
-      alert("Please enter a phone number");
+    const email = formData.email.trim();
+
+    if (!email || !isValidEmail(email)) {
+      const msg = "Please enter a valid email address (e.g., name@example.com).";
+      setError(msg);
+      alert(msg);
       return;
     }
-    const phone = normalizePhone(formData.phoneNumber, "IN");
-    if (!phone) {
-      setError("Please enter a valid Indian mobile number (e.g., +91 9876543210).");
-      alert("Please enter a valid Indian mobile number (e.g., +91 9876543210).");
-      return;
-    }
+
+    const tryEndpoints = async () => {
+      const endpoints = [api("/api/auth/send-email-otp"), api("/api/auth/send-otp")];
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) return data;
+          throw new Error(data?.message || `Failed (${res.status})`);
+        } catch {
+          continue;
+        }
+      }
+      throw new Error("Failed to send OTP. Please try again.");
+    };
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to send OTP");
-
+      const data = await tryEndpoints();
       setOtpToken(data.otp_token);
       setOtpSent(true);
-      alert("OTP sent to your phone");
+      alert("OTP sent to your email");
     } catch (err: any) {
-      console.error("send-otp error:", err);
+      console.error("send-email-otp error:", err);
       setError(err?.message || "Failed to send OTP");
       alert(err?.message || "Failed to send OTP");
     }
@@ -114,7 +126,7 @@ const SignUp: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+      const res = await fetch(api("/api/auth/verify-otp"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp_token: otpToken, otp }),
@@ -137,34 +149,39 @@ const SignUp: React.FC = () => {
     setError("");
 
     if (!otpVerified || !proofToken) {
-      alert("Please verify OTP before signing up");
+      alert("Please verify OTP sent to your email before signing up");
+      return;
+    }
+
+    if (!isValidEmail(formData.email)) {
+      setError("Invalid email address. Please re-enter and verify again.");
+      return;
+    }
+
+    // Normalize the phone to E.164 using India as default when it looks like a 10-digit IN mobile.
+    const phoneE164 = normalizePhone(formData.phoneNumber, "IN");
+    if (!phoneE164) {
+      setError("Please enter a valid phone number (with correct country).");
       return;
     }
 
     setLoading(true);
-    const phone = normalizePhone(formData.phoneNumber, "IN"); // <-- FIXED (was toE164)
-    if (!phone) {
-      setError("Invalid phone number. Please re-enter and verify again.");
-      setLoading(false);
-      return;
-    }
-    const userType = formData.userType;
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      const res = await fetch(api("/api/auth/signup"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${proofToken}`, // Twilio proof token
+          Authorization: `Bearer ${proofToken}`,
         },
         body: JSON.stringify({
-          userType,
+          userType: formData.userType,
           email: formData.email,
           password: formData.password,
           firstName: formData.firstName,
           lastName: formData.lastName,
           name: `${formData.firstName} ${formData.lastName}`.trim(),
-          phoneNumber: phone, // must match the verified number
+          phoneNumber: phoneE164, // send normalized number
           companyName: formData.companyName,
           description: formData.description,
         }),
@@ -176,7 +193,6 @@ const SignUp: React.FC = () => {
         : { message: await res.text() };
 
       if (res.ok) {
-        // Persist session
         localStorage.setItem("token", (data as any).token);
         localStorage.setItem("ba_user", JSON.stringify((data as any).user));
         localStorage.setItem(
@@ -185,13 +201,8 @@ const SignUp: React.FC = () => {
         );
         window.dispatchEvent(new Event("auth:changed"));
 
-        // Route by role or to marketplace
         const role = ((data as any).user?.role || "user").toLowerCase();
-        if (role === "admin") {
-          navigate("/admin", { replace: true });
-        } else {
-          navigate("/marketplace", { replace: true });
-        }
+        navigate(role === "admin" ? "/admin" : "/marketplace", { replace: true });
       } else {
         setError((data as any).message || `Signup failed (HTTP ${res.status})`);
       }
@@ -212,9 +223,7 @@ const SignUp: React.FC = () => {
             <p className="text-blue-600">Join Barter Adverts today</p>
           </div>
 
-          {error && (
-            <p className="text-red-500 text-sm text-center mb-4">{error}</p>
-          )}
+          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* User Type */}
@@ -232,9 +241,7 @@ const SignUp: React.FC = () => {
                     onChange={() => handleUserTypeChange("advertiser")}
                     className="w-4 h-4 text-blue-600 border-gray-300"
                   />
-                  <span className="ml-2 text-gray-700">
-                    Advertiser (I want to advertise)
-                  </span>
+                  <span className="ml-2 text-gray-700">Advertiser (I want to advertise)</span>
                 </label>
                 <label className="flex items-center">
                   <input
@@ -245,9 +252,7 @@ const SignUp: React.FC = () => {
                     onChange={() => handleUserTypeChange("media_owner")}
                     className="w-4 h-4 text-blue-600 border-gray-300"
                   />
-                  <span className="ml-2 text-gray-700">
-                    Media Owner (I have ad space)
-                  </span>
+                  <span className="ml-2 text-gray-700">Media Owner (I have ad space)</span>
                 </label>
               </div>
             </div>
@@ -295,6 +300,9 @@ const SignUp: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 required
               />
+              <p className="text-xs text-blue-600 mt-1">
+                We'll send an OTP to this email to verify your account.
+              </p>
             </div>
 
             {/* Password */}
@@ -313,18 +321,16 @@ const SignUp: React.FC = () => {
               />
             </div>
 
-            {/* Phone */}
+            {/* Phone Number with Country Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number <span className="text-red-500">*</span>
               </label>
               <PhoneInput
-                country="in"
+                country="in"           // default selected country
                 enableSearch
                 value={formData.phoneNumber}
-                onChange={(phone) =>
-                  setFormData((p) => ({ ...p, phoneNumber: phone }))
-                }
+                onChange={(val) => setFormData((p) => ({ ...p, phoneNumber: val }))}
                 inputProps={{ name: "phoneNumber", required: true }}
                 inputStyle={{
                   width: "100%",
@@ -340,21 +346,50 @@ const SignUp: React.FC = () => {
                   border: "1px solid #ccc",
                   background: "#fff",
                 }}
-                containerStyle={{ width: "100%", marginBottom: "0.5rem" }}
+                containerStyle={{ width: "100%", marginBottom: "0.25rem" }}
               />
-              <p className="text-xs text-blue-600 mt-1">
-                We'll send an OTP to verify your number
+              <p className="text-xs text-gray-500">
+                Choose your country, then enter the number. We’ll store it in international format.
               </p>
             </div>
 
-            {/* OTP actions */}
+            {/* Company (optional) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Company Name
+              </label>
+              <input
+                type="text"
+                name="companyName"
+                value={formData.companyName}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+
+            {/* Description (optional) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                About / Description
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                rows={3}
+                placeholder="Tell us a bit about your needs or inventory..."
+              />
+            </div>
+
+            {/* OTP actions (Email) */}
             {!otpSent ? (
               <button
                 type="button"
                 onClick={handleSendOtp}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
               >
-                Send OTP
+                Send OTP to Email
               </button>
             ) : !otpVerified ? (
               <>
@@ -362,7 +397,7 @@ const SignUp: React.FC = () => {
                   type="text"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  placeholder="Enter OTP"
+                  placeholder="Enter OTP from email"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
                 <div className="flex gap-2">
