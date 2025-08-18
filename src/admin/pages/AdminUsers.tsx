@@ -1,4 +1,3 @@
-// src/admin/pages/AdminUsers.tsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../utils/api";
 
@@ -11,7 +10,7 @@ type User = {
   firstName: string;
   lastName?: string;
   email: string;
-  phone?: string;
+  phoneNumber?: string; // 👈 FIX: correct field name
   userType: "advertiser" | "media_owner";
   role?: "user" | "admin";
   status?: "active" | "suspended";
@@ -46,7 +45,6 @@ export default function AdminUsers() {
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, role, status, uType]);
 
   const changeStatus = async (id: string, to: "active" | "suspended") => {
@@ -142,7 +140,9 @@ export default function AdminUsers() {
                   {u.firstName} {u.lastName || ""}
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-neutral-300">{u.email}</td>
-                <td className="px-4 py-3 text-gray-600 dark:text-neutral-300">{u.phone || "—"}</td>
+                <td className="px-4 py-3 text-gray-600 dark:text-neutral-300">
+                  {u.phoneNumber || "—"}
+                </td>
                 <td className="px-4 py-3 capitalize">{u.userType.replace("_", " ")}</td>
                 <td className="px-4 py-3">
                   <span
@@ -169,7 +169,6 @@ export default function AdminUsers() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center align-middle">
-                  {/* Professional destructive/restore button */}
                   {u.status === "suspended" ? (
                     <button
                       onClick={() => changeStatus(u._id, "active")}

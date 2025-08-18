@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Users, TrendingUp, Crown, Rocket } from "lucide-react";
+import { Check, Users, TrendingUp, Crown, Rocket, X } from "lucide-react";
 import Footer from "./Footer";
 
 declare global {
@@ -31,8 +31,9 @@ const PricingPlans: React.FC = () => {
   const navigate = useNavigate();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [userType, setUserType] = useState<UserType>("advertisers");
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
-  // ------- Simple auth helpers (no redirects) -------
+  // ------- Simple auth helpers -------
   const isAuthenticated = () => !!localStorage.getItem("token");
   const getCurrentUser = () => {
     try {
@@ -42,7 +43,7 @@ const PricingPlans: React.FC = () => {
     }
   };
 
-  // ------- Razorpay flow (no navigation here) -------
+  // ------- Razorpay flow -------
   const handlePayment = async (amountPaise: number, user?: any) => {
     try {
       const res = await fetch(
@@ -51,7 +52,6 @@ const PricingPlans: React.FC = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // include auth if your backend requires it
             Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
           },
           body: JSON.stringify({ amount: amountPaise }),
@@ -64,14 +64,13 @@ const PricingPlans: React.FC = () => {
       }
 
       const options = {
-        key: "rzp_test_qV8BGFcUas9r3A", // replace with live key in production
+        key: "rzp_test_qV8BGFcUas9r3A",
         amount: data.order.amount, // paise
         currency: "INR",
         name: "Barter Adverts",
         description: "Subscription Payment",
         order_id: data.order.id,
         handler: function (response: any) {
-          // TODO: verify payment on your backend (send response.razorpay_payment_id etc.)
           alert("Payment successful!");
           console.log("Payment response:", response);
         },
@@ -211,7 +210,7 @@ const PricingPlans: React.FC = () => {
               </button>
             </div>
 
-            {/* Optional: Toggle billing cycle */}
+            {/* Toggle billing cycle */}
             <div className="flex justify-center mt-4">
               <div className="inline-flex rounded-lg border overflow-hidden">
                 <button
@@ -241,9 +240,11 @@ const PricingPlans: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {staticPlans.map((plan) => {
               const Icon = plan.icon;
-              const yearlyPrice = Math.floor(plan.price * 12 * 0.8);
-              const displayPrice =
-                billingCycle === "yearly" ? yearlyPrice : plan.price;
+              const isYearly = billingCycle === "yearly";
+              const yearlyPrice = Math.floor(plan.price * 12 * 0.8); // 20% off
+              const displayPrice = isYearly ? yearlyPrice : plan.price;
+              const unit = isYearly ? "/year" : "/month";
+              const perMonthEq = Math.round(yearlyPrice / 12);
 
               return (
                 <div
@@ -272,21 +273,24 @@ const PricingPlans: React.FC = () => {
                     <p className="text-sm text-gray-600 mt-2 mb-4">
                       {plan.description}
                     </p>
+
+                    {/* Price + unit */}
                     <div className="text-2xl font-bold text-gray-900">
-                      ₹{displayPrice}
+                      ₹{displayPrice} <span className="text-base text-gray-600">{unit}</span>
                     </div>
-                    <p className="text-red-500 text-sm">{plan.commission}</p>
+                    {isYearly && (
+                      <p className="text-xs text-gray-500">
+                        ≈ ₹{perMonthEq}/month (billed yearly)
+                      </p>
+                    )}
+
+                    <p className="text-red-500 text-sm mt-1">{plan.commission}</p>
                     <p className="text-gray-500 text-sm mb-4">{plan.dealLimit}</p>
 
                     <button
                       onClick={() => {
-                        // Guard here, not in a redirecting helper
                         if (!isAuthenticated()) {
-                          // send them to sign-in and optionally remember where they came from
-                          navigate("/login", {
-                            replace: true,
-                            state: { from: "/pricing" },
-                          });
+                          setShowAuthPrompt(true);
                           return;
                         }
                         const user = getCurrentUser();
@@ -312,6 +316,47 @@ const PricingPlans: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Auth required popup */}
+      {showAuthPrompt && (
+        <div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
+            <button
+              onClick={() => setShowAuthPrompt(false)}
+              className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-semibold mb-2">Sign in required</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Please sign in or create an account to subscribe to a plan.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => {
+                  setShowAuthPrompt(false);
+                  navigate("/login", { replace: false, state: { from: "/pricing" } });
+                }}
+                className="flex-1 px-4 py-2 rounded-lg border text-gray-800 hover:bg-gray-50"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => {
+                  setShowAuthPrompt(false);
+                  navigate("/signup", { replace: false, state: { from: "/pricing" } });
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+              >
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </>
   );
