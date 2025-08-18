@@ -2,6 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Topbar from "./components/Topbar";
+import Header from "./components/Header";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Contact from "./pages/Contact";
@@ -92,7 +93,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      {!hideLayout && <Topbar />}   {/* ⬅️ render Topbar instead of Header */}
+      {/* {!hideLayout && <Topbar />}   ⬅️ render Topbar instead of Header */}
+      {!hideLayout && <Header />}
 
       <Routes>
         <Route path="/" element={<Home />} />

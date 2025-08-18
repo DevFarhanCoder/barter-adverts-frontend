@@ -1,123 +1,222 @@
-import React, { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Handshake, MapPin, Menu, X, ChevronDown } from 'lucide-react';
+// src/components/Header.tsx
+import React, { useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Handshake, MapPin, Menu, X, ChevronDown } from "lucide-react";
 
 const Header: React.FC = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
+  const isAuthed = !!localStorage.getItem("token");
   const user = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+    try {
+      return (
+        JSON.parse(localStorage.getItem("ba_user") || "null") ||
+        JSON.parse(localStorage.getItem("user") || "null")
+      );
+    } catch {
+      return null;
+    }
   }, []);
-  const isAuthed = !!localStorage.getItem('token');
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-    window.location.reload();
+    localStorage.removeItem("token");
+    localStorage.removeItem("ba_user");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    window.dispatchEvent(new Event("auth:changed"));
+    navigate("/", { replace: true });
+  };
+
+  const NavLinkItem = ({ to, label }: { to: string; label: string }) => {
+    const active =
+      location.pathname === to || location.pathname.startsWith(`${to}/`);
+    return (
+      <Link
+        to={to}
+        className={`text-sm font-medium transition-colors ${
+          active ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
+        }`}
+        onClick={() => setIsMobileOpen(false)}
+      >
+        {label}
+      </Link>
+    );
   };
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-lg">
-                <Handshake className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Barter Adverts</h1>
-                <p className="text-xs text-gray-500">Media Marketplace</p>
-              </div>
-            </div>
-          </Link>
-
-          {/* Location */}
-          <div className="hidden md:flex items-center space-x-2 text-gray-600">
-            <MapPin className="w-4 h-4" />
-            <span className="text-sm">Mumbai, India</span>
+    <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        {/* Brand */}
+        <Link
+          to="/"
+          className="flex items-center gap-3"
+          onClick={() => setIsMobileOpen(false)}
+        >
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-blue-600 text-white">
+            <Handshake className="h-5 w-5" />
           </div>
+          {/* Text now always visible (not hidden on mobile) */}
+          <div className="flex flex-col leading-tight">
+            <span className="font-semibold">Barter Adverts</span>
+            <span className="text-xs text-gray-500 -mt-0.5">
+              Media Marketplace
+            </span>
+          </div>
+        </Link>
 
-          {/* Nav (desktop) */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/marketplace" className="text-gray-700 hover:text-blue-600 font-medium">Marketplace</Link>
-            <Link to="/how-it-works" className="text-gray-700 hover:text-blue-600 font-medium">How It Works</Link>
-            <Link to="/pricing" className="text-gray-700 hover:text-blue-600 font-medium">Pricing</Link>
-            <Link to="/about" className="text-gray-700 hover:text-blue-600 font-medium">About</Link>
-          </nav>
+        {/* Location (desktop only) */}
+        <div className="hidden md:flex items-center gap-2 text-gray-600">
+          <MapPin className="w-4 h-4" />
+          <span className="text-sm">Mumbai, India</span>
+        </div>
 
-          {/* Right side: auth or profile */}
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-6">
+          <NavLinkItem to="/marketplace" label="Marketplace" />
+          <NavLinkItem to="/how-it-works" label="How it Works" />
+          <NavLinkItem to="/pricing" label="Pricing" />
+          <NavLinkItem to="/about" label="About" />
+        </nav>
+
+        {/* Desktop auth / user */}
+        <div className="hidden md:flex items-center gap-3">
           {!isAuthed ? (
-            <div className="hidden md:flex items-center space-x-4">
-              <Link to="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Sign Up
-              </Link>
-              <Link to="/login" className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors">
-                Sign In
-              </Link>
-            </div>
-          ) : (
-            <div className="hidden md:flex items-center relative">
-              <button
-                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-700"
-                onClick={() => setMenuOpen(v => !v)}
+            <>
+              <Link
+                to="/login"
+                className="rounded-xl border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
-                <div className="h-8 w-8 rounded-full bg-blue-600 text-white grid place-items-center">
-                  {(user?.firstName?.[0] || 'U').toUpperCase()}
+                Sign in
+              </Link>
+              <Link
+                to="/signup"
+                // ✅ reverted to old blue color
+                className="rounded-xl bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+              >
+                Create account
+              </Link>
+            </>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <div className="h-6 w-6 rounded-full bg-blue-600 text-white grid place-items-center">
+                  {(user?.firstName?.[0] || "U").toUpperCase()}
                 </div>
-                <div className="text-left leading-tight">
-                  <div className="font-medium">{user?.firstName || 'User'}</div>
-                  <div className="text-xs text-gray-500">{user?.email}</div>
-                </div>
+                <span className="max-w-[10rem] truncate">
+                  {user?.firstName || user?.email || "Account"}
+                </span>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
 
-              {menuOpen && (
-                <div className="absolute right-0 top-12 w-56 rounded-lg border bg-white shadow-md">
-                  <Link to="/dashboard" className="block px-4 py-2 text-sm hover:bg-gray-50">My Dashboard</Link>
-                  <Link to="/settings" className="block px-4 py-2 text-sm hover:bg-gray-50">Settings</Link>
-                  <button onClick={logout} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">
-                    Sign Out
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-white p-2 shadow-lg">
+                  <Link
+                    to="/dashboard"
+                    className="block rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className="block rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      logout();
+                    }}
+                    className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                  >
+                    Logout
                   </button>
                 </div>
               )}
             </div>
           )}
-
-          {/* Mobile menu button */}
-          <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
         </div>
 
-        {/* Mobile menu */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t">
-            <div className="flex flex-col space-y-4">
-              <Link to="/marketplace" className="text-gray-700 hover:text-blue-600 font-medium">Marketplace</Link>
-              <Link to="/how-it-works" className="text-gray-700 hover:text-blue-600 font-medium">How It Works</Link>
-              <Link to="/pricing" className="text-gray-700 hover:text-blue-600 font-medium">Pricing</Link>
-              <Link to="/about" className="text-gray-700 hover:text-blue-600 font-medium">About</Link>
+        {/* Mobile hamburger */}
+        <button
+          className="md:hidden grid h-10 w-10 place-items-center rounded-xl border hover:bg-gray-50"
+          onClick={() => setIsMobileOpen((v) => !v)}
+          aria-label="Toggle menu"
+        >
+          {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
 
-              {!isAuthed ? (
-                <>
-                  <Link to="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-center">Sign Up</Link>
-                  <Link to="/login" className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg text-center">Sign In</Link>
-                </>
-              ) : (
-                <>
-                  <Link to="/dashboard" className="px-6 py-2 rounded-lg border text-center">My Dashboard</Link>
-                  <Link to="/settings" className="px-6 py-2 rounded-lg border text-center">Settings</Link>
-                  <button onClick={logout} className="px-6 py-2 rounded-lg bg-gray-100 text-center">Sign Out</button>
-                </>
-              )}
-            </div>
+      {/* Mobile sheet */}
+      <div
+        className={`md:hidden border-t bg-white transition-all duration-300 ease-out ${
+          isMobileOpen ? "max-h-[480px] opacity-100" : "max-h-0 opacity-0"
+        } overflow-hidden`}
+      >
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <nav className="flex flex-col gap-2">
+            <NavLinkItem to="/marketplace" label="Marketplace" />
+            <NavLinkItem to="/how-it-works" label="How it Works" />
+            <NavLinkItem to="/pricing" label="Pricing" />
+            <NavLinkItem to="/about" label="About" />
+          </nav>
+
+          <div className="mt-3 border-t pt-3 flex flex-col gap-2">
+            {!isAuthed ? (
+              <>
+                <Link
+                  to="/login"
+                  className="rounded-lg border px-3 py-2 text-center text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/signup"
+                  // ✅ also blue on mobile
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-center text-sm text-white hover:bg-blue-700"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  Create account
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/dashboard"
+                  className="rounded-lg px-3 py-2 text-center text-sm hover:bg-gray-50"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/settings"
+                  className="rounded-lg px-3 py-2 text-center text-sm hover:bg-gray-50"
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  Settings
+                </Link>
+                <button
+                  onClick={() => {
+                    setIsMobileOpen(false);
+                    logout();
+                  }}
+                  className="rounded-lg px-3 py-2 text-center text-sm text-rose-600 hover:bg-rose-50"
+                >
+                  Logout
+                </button>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </header>
   );
