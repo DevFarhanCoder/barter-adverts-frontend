@@ -1,53 +1,66 @@
-import React, { useState } from 'react'
-import { MapPin, Phone, Mail, Clock } from 'lucide-react'
+import React, { useState } from "react";
+import { MapPin, Phone, Mail, Clock } from "lucide-react";
 
-const Contact: React.FC = () => {
+const Contact = () => {
   const [formData, setFormData] = useState({
-    fullName: '',
-    emailAddress: '',
-    phoneNumber: '',
-    role: '',
-    subject: '',
-    message: ''
-  })
-  const [loading, setLoading] = useState(false)
+    fullName: "",
+    emailAddress: "",
+    phoneNumber: "",
+    role: "",
+    subject: "",
+    message: "",
+  });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     setTimeout(() => {
-      alert("Message sent successfully! We'll get back to you within 24 hours.")
-      setFormData({ fullName: '', emailAddress: '', phoneNumber: '', role: '', subject: '', message: '' })
-      setLoading(false)
-    }, 1000)
-  }
+      alert("Message sent successfully! We'll get back to you within 24 hours.");
+      setFormData({
+        fullName: "",
+        emailAddress: "",
+        phoneNumber: "",
+        role: "",
+        subject: "",
+        message: "",
+      });
+      setLoading(false);
+    }, 1000);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Contact Us</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Contact Us
+          </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Have questions about barter advertising? We're here to help you get started.
+            Have questions about barter advertising? We're here to help you get
+            started.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left: Contact info */}
+          {/* Left Side Info */}
           <div className="space-y-8">
-            {/* Office Address */}
+            {/* Address */}
             <div className="bg-white rounded-lg p-6 shadow-sm">
               <div className="flex items-start space-x-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Office Address</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Office Address
+                  </h3>
                   <div className="text-gray-600 space-y-1">
                     <p>A-605, Range Height, Link Road</p>
                     <p>Opp Kajupada, Near Oshiwara Metro Station</p>
@@ -75,15 +88,27 @@ const Contact: React.FC = () => {
                   <Phone className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Phone</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Phone
+                  </h3>
                   <div className="text-gray-600 space-y-1">
                     <p>
-                      Rajesh Modi:{' '}
-                      <a href="tel:+919867477227" className="text-green-600 font-medium">9867477227</a>
+                      Rajesh Modi:{" "}
+                      <a
+                        href="tel:+919867477227"
+                        className="text-green-600 font-medium"
+                      >
+                        9867477227
+                      </a>
                     </p>
                     <p>
-                      Srinivas Shetti:{' '}
-                      <a href="tel:+919820540202" className="text-green-600 font-medium">9820540202</a>
+                      Srinivas Shetti:{" "}
+                      <a
+                        href="tel:+919820540202"
+                        className="text-green-600 font-medium"
+                      >
+                        9820540202
+                      </a>
                     </p>
                   </div>
                 </div>
@@ -97,11 +122,16 @@ const Contact: React.FC = () => {
                   <Mail className="w-6 h-6 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Email</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Email
+                  </h3>
                   <div className="text-gray-600 space-y-1">
                     <p>
-                      <span className="font-medium">General:</span>{' '}
-                      <a href="mailto:barteradverts@gmail.com" className="text-purple-600 underline">
+                      <span className="font-medium">General:</span>{" "}
+                      <a
+                        href="mailto:barteradverts@gmail.com"
+                        className="text-purple-600 underline"
+                      >
                         barteradverts@gmail.com
                       </a>
                     </p>
@@ -117,20 +147,32 @@ const Contact: React.FC = () => {
                   <Clock className="w-6 h-6 text-orange-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Business Hours</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Business Hours
+                  </h3>
                   <div className="text-gray-600 space-y-1">
-                    <p><span className="font-medium">Monday - Friday:</span> 9:00 AM - 7:00 PM</p>
-                    <p><span className="font-medium">Saturday:</span> 10:00 AM - 4:00 PM</p>
-                    <p><span className="font-medium">Sunday:</span> Closed</p>
+                    <p>
+                      <span className="font-medium">Monday - Friday:</span> 9:00
+                      AM - 7:00 PM
+                    </p>
+                    <p>
+                      <span className="font-medium">Saturday:</span> 10:00 AM -
+                      4:00 PM
+                    </p>
+                    <p>
+                      <span className="font-medium">Sunday:</span> Closed
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right: Contact Form */}
+          {/* Right Side Form */}
           <div className="bg-white rounded-lg p-8 shadow-sm">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Send us a Message</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">
+              Send us a Message
+            </h3>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,7 +206,9 @@ const Contact: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
                   <input
                     type="tel"
                     name="phoneNumber"
@@ -174,7 +218,9 @@ const Contact: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    I am a:
+                  </label>
                   <select
                     name="role"
                     value={formData.role}
@@ -225,7 +271,7 @@ const Contact: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
               >
-                {loading ? 'Sending Message...' : 'Send Message'}
+                {loading ? "Sending Message..." : "Send Message"}
               </button>
 
               <p className="text-sm text-gray-500 text-center">
@@ -233,14 +279,10 @@ const Contact: React.FC = () => {
               </p>
             </form>
           </div>
-        </div> 
-        {/* closes grid */}
-      </div> 
-      {/* closes container */}
-    </div> 
-    {/* closes min-h wrapper */}
-  )
-}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-export default Contact
-
+export default Contact;
