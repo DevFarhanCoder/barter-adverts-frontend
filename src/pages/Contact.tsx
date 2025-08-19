@@ -233,10 +233,14 @@ const Contact: React.FC = () => {
               </p>
             </form>
           </div>
-        </div> {/* <-- closes grid */}
-      </div> {/* <-- closes container */}
-    </div>   {/* <-- closes min-h wrapper */}
+        </div> 
+        {/* closes grid */}
+      </div> 
+      {/* closes container */}
+    </div> 
+    {/* closes min-h wrapper */}
   )
 }
 
 export default Contact
+
