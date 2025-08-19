@@ -234,7 +234,6 @@ const Contact: React.FC = () => {
             </form>
           </div>
         </div> {/* <-- closes grid */}
-
       </div> {/* <-- closes container */}
     </div>   {/* <-- closes min-h wrapper */}
   )
