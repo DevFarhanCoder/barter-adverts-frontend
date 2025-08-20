@@ -43,7 +43,7 @@ export const About: React.FC = () => {
       name: "Rajesh Modi",
       role: "Founder & CEO",
       description:
-        "Media-barter pioneer with 15+ years in advertising, partnerships, and growth. Sets the vision and long-term strategy for Barter Adverts.",
+        "Media-barter pioneer with 25+ years in advertising, partnerships, and growth. Sets the vision and long-term strategy for Barter Adverts.",
     },
     {
       name: "Srinivas Shetti",
@@ -159,7 +159,7 @@ export const About: React.FC = () => {
                   Barter Adverts was born from a simple observation: thousands of businesses in India have valuable products and services but struggle to afford traditional advertising, while media owners often have unsold inventory that could be put to good use.
                 </p>
                 <p className="text-gray-600 leading-relaxed mb-4">
-                  Our founder, Rajesh Kumar, spent over 15 years in the advertising industry and witnessed this inefficiency firsthand. He saw small restaurants with amazing food but no budget for billboards, and billboard owners with empty spaces during off-peak seasons.
+                  Our founder, Rajesh Modi, spent over 25+ years in the advertising industry and witnessed this inefficiency firsthand. He saw small restaurants with amazing food but no budget for billboards, and billboard owners with empty spaces during off-peak seasons.
                 </p>
                 <p className="text-gray-600 leading-relaxed mb-4">
                   The idea was simple but revolutionary: what if we could connect these two groups directly? What if a restaurant could trade their catering services for billboard space? What if an influencer could promote a software company in exchange for a premium license?
