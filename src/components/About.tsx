@@ -1,6 +1,5 @@
 import React from 'react';
 import { Target, Users, Lightbulb, Award, User } from 'lucide-react';
-import Footer from './Footer';
 
 interface Value {
   icon: React.ComponentType<any>;
@@ -164,7 +163,6 @@ export const About: React.FC = () => {
         </div>
       </div>
     </section>
-    <Footer />
     </>
   );
 };

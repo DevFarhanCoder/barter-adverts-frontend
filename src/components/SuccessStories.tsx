@@ -1,27 +1,27 @@
-import React from 'react';
+import { useNavigate } from "react-router-dom";
+import React from "react";
 
 const SuccessStories = () => {
+  const navigate = useNavigate();
+
   const stories = [
     {
       company: 'TechStart Solutions',
       industry: 'SaaS',
       deal: 'Traded ₹25,000 software licenses for prime billboard space',
       result: '40% increase in brand awareness',
-      color: 'from-blue-500 to-blue-600'
     },
     {
       company: 'Cafe Mocha',
       industry: 'F&B',
       deal: 'Exchanged coffee vouchers for influencer marketing',
       result: '200% boost in foot traffic',
-      color: 'from-purple-500 to-purple-600'
     },
     {
       company: 'FitLife Gym',
       industry: 'Fitness',
       deal: 'Bartered gym memberships for radio advertising',
       result: '150 new members in 30 days',
-      color: 'from-pink-500 to-pink-600'
     }
   ];
 
@@ -69,7 +69,10 @@ const SuccessStories = () => {
 
         {/* CTA */}
         <div className="text-center">
-          <button className="bg-white text-purple-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors">
+          <button
+            onClick={() => navigate("/success-stories")}
+            className="bg-white text-purple-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors"
+          >
             View All Success Stories
           </button>
         </div>

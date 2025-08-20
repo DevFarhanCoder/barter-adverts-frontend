@@ -1,5 +1,4 @@
 import React from 'react'
-import Footer from './Footer'
 import {
   Search,
   MessageSquare,
@@ -149,7 +148,6 @@ const HowItWorks: React.FC = () => {
         </div>
       </div>
     </section>
-    <Footer />
     </>
   )
 }

@@ -1,11 +1,25 @@
-import { TrendingUp, Users, Zap, ArrowRight } from 'lucide-react';
+import React, { useState } from "react";
+import { TrendingUp, Users, Zap, ArrowRight, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const Hero = () => {
+const Hero: React.FC = () => {
+  const navigate = useNavigate();
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+
+  const handleStartTrading = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/marketplace"); // logged in -> go to marketplace
+    } else {
+      setShowAuthPrompt(true);  // not logged in -> show modal
+    }
+  };
+
   return (
     <section className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-purple-800 text-white overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-black/10"></div>
-      
+
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
         {/* Badge */}
         <div className="flex justify-center mb-8">
@@ -55,14 +69,53 @@ const Hero = () => {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-16">
-          <button className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-8 py-4 rounded-lg font-bold text-lg hover:from-yellow-500 hover:to-orange-600 transition-all transform hover:scale-105 flex items-center space-x-2">
+          <button
+            onClick={handleStartTrading}
+            className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-8 py-4 rounded-lg font-bold text-lg hover:from-yellow-500 hover:to-orange-600 transition-all transform hover:scale-105 flex items-center space-x-2"
+          >
             <span>Start Trading Now</span>
             <ArrowRight className="w-5 h-5" />
           </button>
-          <button className="bg-white/20 backdrop-blur-sm text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-white/30 transition-all border border-white/30">
-            Watch Demo
-          </button>
         </div>
+
+        {/* Auth Modal */}
+        {showAuthPrompt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            {/* Reset text color inside the panel */}
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-gray-900">
+              <div className="flex items-start justify-between">
+                <h3 className="text-xl font-semibold">Sign in to continue</h3>
+                <button
+                  onClick={() => setShowAuthPrompt(false)}
+                  className="p-1 rounded-md hover:bg-gray-100"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+
+              <p className="mt-2 text-gray-600">
+                Please Sign In or Create an Account to start trading on Barter Adverts.
+              </p>
+
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => navigate("/login")}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 font-medium hover:bg-gray-50 text-gray-800"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => navigate("/signup")}
+                  className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 font-medium hover:bg-blue-700"
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">

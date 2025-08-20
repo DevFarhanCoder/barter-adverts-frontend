@@ -17,6 +17,13 @@ import SignIn from "./pages/SignIn";
 import DashboardHome from "./pages/DashboardHome";
 import Listings from "./pages/Listings";
 import AccountSettings from "./pages/AccountSettings";
+import AllSuccessStories from "./pages/AllSuccessStories";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Terms from "./pages/Terms";
+import RefundCancellation from "./pages/RefundCancellation";
+import HelpCenter from "./pages/HelpCenter";
+import ScrollToTop from "./components/ScrollToTop";
+
 
 // Admin
 import AdminLayout from "./admin/AdminLayout";
@@ -95,7 +102,7 @@ function AppContent() {
     <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* {!hideLayout && <Topbar />}   ⬅️ render Topbar instead of Header */}
       {!hideLayout && <Header />}
-
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
@@ -104,6 +111,11 @@ function AppContent() {
         <Route path="/pricing" element={<PricingPlans />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
+        <Route path="/success-stories" element={<AllSuccessStories />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/refund-cancellation" element={<RefundCancellation />} />
+        <Route path="/help" element={<HelpCenter />} />
 
         <Route
           path="/marketplace"

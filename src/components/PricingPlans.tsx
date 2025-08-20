@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Users, TrendingUp, Crown, Rocket, X } from "lucide-react";
-import Footer from "./Footer";
 
 declare global {
   interface Window {
@@ -356,8 +355,6 @@ const PricingPlans: React.FC = () => {
           </div>
         </div>
       )}
-
-      <Footer />
     </>
   );
 };
